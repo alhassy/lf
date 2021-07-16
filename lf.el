@@ -4,7 +4,7 @@
 
 ;; Author: Musa Al-hassy <alhassy@gmail.com>
 ;; Version: 1.0
-;; Package-Requires: ((s "1.12.0") (dash "2.16.0") (emacs "27.1") (org "9.1"))
+;; Package-Requires: ((s "1.12.0") (dash "2.16.0") (emacs "27.1"))
 ;; Keywords: convenience, programming
 ;; Repo: https://github.com/alhassy/lf.el
 ;; Homepage: https://alhassy.github.io/lf.el/
@@ -24,8 +24,7 @@
 
 ;;; Commentary:
 
-;; This library provides common desirable features using the Org interface for
-;; when writing about the Quran and the Bible:
+;; This library provides common desirable “L”anguage “F”eatures:
 ;;
 ;; 0. A unifed interface for defining both variables and functions.  LF-DEFINE.
 ;;
@@ -62,7 +61,6 @@
 (require 's)               ;; “The long lost Emacs string manipulation library”
 (require 'dash)            ;; “A modern list library for Emacs”
 (require 'cl-lib)          ;; New Common Lisp library; ‘cl-???’ forms.
-(require 'org)
 
 (defconst lf-version (package-get-version))
 (defun lf-version ()
