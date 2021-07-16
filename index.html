@@ -1,0 +1,843 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<!-- 2021-07-15 Thu 20:45 -->
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>lf.el</title>
+<meta name="generator" content="Org mode" />
+<meta name="author" content="[[https://alhassy.github.io/][Musa Al-hassy]]" />
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center;
+             margin-bottom: .2em; }
+  .subtitle { text-align: center;
+              font-size: medium;
+              font-weight: bold;
+              margin-top:0; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { font-family: monospace; color: green; }
+  .priority { font-family: monospace; color: orange; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .org-right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .org-left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .org-center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: auto;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline; margin-top: 14px;}
+  /* Languages per Org manual */
+  pre.src-asymptote:before { content: 'Asymptote'; }
+  pre.src-awk:before { content: 'Awk'; }
+  pre.src-C:before { content: 'C'; }
+  /* pre.src-C++ doesn't work in CSS */
+  pre.src-clojure:before { content: 'Clojure'; }
+  pre.src-css:before { content: 'CSS'; }
+  pre.src-D:before { content: 'D'; }
+  pre.src-ditaa:before { content: 'ditaa'; }
+  pre.src-dot:before { content: 'Graphviz'; }
+  pre.src-calc:before { content: 'Emacs Calc'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-fortran:before { content: 'Fortran'; }
+  pre.src-gnuplot:before { content: 'gnuplot'; }
+  pre.src-haskell:before { content: 'Haskell'; }
+  pre.src-hledger:before { content: 'hledger'; }
+  pre.src-java:before { content: 'Java'; }
+  pre.src-js:before { content: 'Javascript'; }
+  pre.src-latex:before { content: 'LaTeX'; }
+  pre.src-ledger:before { content: 'Ledger'; }
+  pre.src-lisp:before { content: 'Lisp'; }
+  pre.src-lilypond:before { content: 'Lilypond'; }
+  pre.src-lua:before { content: 'Lua'; }
+  pre.src-matlab:before { content: 'MATLAB'; }
+  pre.src-mscgen:before { content: 'Mscgen'; }
+  pre.src-ocaml:before { content: 'Objective Caml'; }
+  pre.src-octave:before { content: 'Octave'; }
+  pre.src-org:before { content: 'Org mode'; }
+  pre.src-oz:before { content: 'OZ'; }
+  pre.src-plantuml:before { content: 'Plantuml'; }
+  pre.src-processing:before { content: 'Processing.js'; }
+  pre.src-python:before { content: 'Python'; }
+  pre.src-R:before { content: 'R'; }
+  pre.src-ruby:before { content: 'Ruby'; }
+  pre.src-sass:before { content: 'Sass'; }
+  pre.src-scheme:before { content: 'Scheme'; }
+  pre.src-screen:before { content: 'Gnu Screen'; }
+  pre.src-sed:before { content: 'Sed'; }
+  pre.src-sh:before { content: 'shell'; }
+  pre.src-sql:before { content: 'SQL'; }
+  pre.src-sqlite:before { content: 'SQLite'; }
+  /* additional languages in org.el's org-babel-load-languages alist */
+  pre.src-forth:before { content: 'Forth'; }
+  pre.src-io:before { content: 'IO'; }
+  pre.src-J:before { content: 'J'; }
+  pre.src-makefile:before { content: 'Makefile'; }
+  pre.src-maxima:before { content: 'Maxima'; }
+  pre.src-perl:before { content: 'Perl'; }
+  pre.src-picolisp:before { content: 'Pico Lisp'; }
+  pre.src-scala:before { content: 'Scala'; }
+  pre.src-shell:before { content: 'Shell Script'; }
+  pre.src-ebnf2ps:before { content: 'ebfn2ps'; }
+  /* additional language identifiers per "defun org-babel-execute"
+       in ob-*.el */
+  pre.src-cpp:before  { content: 'C++'; }
+  pre.src-abc:before  { content: 'ABC'; }
+  pre.src-coq:before  { content: 'Coq'; }
+  pre.src-groovy:before  { content: 'Groovy'; }
+  /* additional language identifiers from org-babel-shell-names in
+     ob-shell.el: ob-shell is the only babel language using a lambda to put
+     the execution function name together. */
+  pre.src-bash:before  { content: 'bash'; }
+  pre.src-csh:before  { content: 'csh'; }
+  pre.src-ash:before  { content: 'ash'; }
+  pre.src-dash:before  { content: 'dash'; }
+  pre.src-ksh:before  { content: 'ksh'; }
+  pre.src-mksh:before  { content: 'mksh'; }
+  pre.src-posh:before  { content: 'posh'; }
+  /* Additional Emacs modes also supported by the LaTeX listings package */
+  pre.src-ada:before { content: 'Ada'; }
+  pre.src-asm:before { content: 'Assembler'; }
+  pre.src-caml:before { content: 'Caml'; }
+  pre.src-delphi:before { content: 'Delphi'; }
+  pre.src-html:before { content: 'HTML'; }
+  pre.src-idl:before { content: 'IDL'; }
+  pre.src-mercury:before { content: 'Mercury'; }
+  pre.src-metapost:before { content: 'MetaPost'; }
+  pre.src-modula-2:before { content: 'Modula-2'; }
+  pre.src-pascal:before { content: 'Pascal'; }
+  pre.src-ps:before { content: 'PostScript'; }
+  pre.src-prolog:before { content: 'Prolog'; }
+  pre.src-simula:before { content: 'Simula'; }
+  pre.src-tcl:before { content: 'tcl'; }
+  pre.src-tex:before { content: 'TeX'; }
+  pre.src-plain-tex:before { content: 'Plain TeX'; }
+  pre.src-verilog:before { content: 'Verilog'; }
+  pre.src-vhdl:before { content: 'VHDL'; }
+  pre.src-xml:before { content: 'XML'; }
+  pre.src-nxml:before { content: 'XML'; }
+  /* add a generic configuration mode; LaTeX export needs an additional
+     (add-to-list 'org-latex-listings-langs '(conf " ")) in .emacs */
+  pre.src-conf:before { content: 'Configuration File'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.org-right  { text-align: center;  }
+  th.org-left   { text-align: center;   }
+  th.org-center { text-align: center; }
+  td.org-right  { text-align: right;  }
+  td.org-left   { text-align: left;   }
+  td.org-center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara { display: inline; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .equation-container {
+    display: table;
+    text-align: center;
+    width: 100%;
+  }
+  .equation {
+    vertical-align: middle;
+  }
+  .equation-label {
+    display: table-cell;
+    text-align: right;
+    vertical-align: middle;
+  }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  .org-svg { width: 90%; }
+  /*]]>*/-->
+</style>
+
+        <style>
+        /* From: https://endlessparentheses.com/public/css/endless.css */
+        /* See also: https://meta.superuser.com/questions/4788/css-for-the-new-kbd-style */
+        kbd
+        {
+          -moz-border-radius: 6px;
+          -moz-box-shadow: 0 1px 0 rgba(0,0,0,0.2),0 0 0 2px #fff inset;
+          -webkit-border-radius: 6px;
+          -webkit-box-shadow: 0 1px 0 rgba(0,0,0,0.2),0 0 0 2px #fff inset;
+          background-color: #f7f7f7;
+          border: 1px solid #ccc;
+          border-radius: 6px;
+          box-shadow: 0 1px 0 rgba(0,0,0,0.2),0 0 0 2px #fff inset;
+          color: #333;
+          display: inline-block;
+          font-family: 'Droid Sans Mono', monospace;
+          font-size: 80%;
+          font-weight: normal;
+          line-height: inherit;
+          margin: 0 .1em;
+          padding: .08em .4em;
+          text-shadow: 0 1px 0 #fff;
+          word-spacing: -4px;
+
+          box-shadow: 2px 2px 2px #222; /* MA: An extra I've added. */
+        }
+        </style>
+        <link rel="stylesheet" type="text/css" href="https://alhassy.github.io/org-special-block-extras/tooltipster/dist/css/tooltipster.bundle.min.css"/>
+
+        <link rel="stylesheet" type="text/css" href="https://alhassy.github.io/org-special-block-extras/tooltipster/dist/css/plugins/tooltipster/sideTip/themes/tooltipster-sideTip-punk.min.css" />
+
+        <script type="text/javascript">
+            if (typeof jQuery == 'undefined') {
+                document.write(unescape('%3Cscript src="https://code.jquery.com/jquery-1.10.0.min.js"%3E%3C/script%3E'));
+            }
+        </script>
+
+         <script type="text/javascript"            src="https://alhassy.github.io/org-special-block-extras/tooltipster/dist/js/tooltipster.bundle.min.js"></script>
+
+          <script>
+                 $(document).ready(function() {
+                     $('.tooltip').tooltipster({
+                         theme: 'tooltipster-punk',
+                         contentAsHTML: true,
+                         animation: 'grow',
+                         delay: [100,500],
+                         // trigger: 'click'
+                         trigger: 'custom',
+                         triggerOpen: {
+                             mouseenter: true
+                         },
+                         triggerClose: {
+                             originClick: true,
+                             scroll: true
+                         }
+         });
+                 });
+             </script>
+
+        <style>
+           abbr {color: red;}
+
+           .tooltip { border-bottom: 1px dotted #000;
+                      color:red;
+                      text-decoration: none;}
+        </style>
+<script type="text/javascript">
+// @license magnet:?xt=urn:btih:e95b018ef3580986a04669f1b5879592219e2a7a&dn=public-domain.txt Public Domain
+<!--/*--><![CDATA[/*><!--*/
+     function CodeHighlightOn(elem, id)
+     {
+       var target = document.getElementById(id);
+       if(null != target) {
+         elem.classList.add("code-highlighted");
+         target.classList.add("code-highlighted");
+       }
+     }
+     function CodeHighlightOff(elem, id)
+     {
+       var target = document.getElementById(id);
+       if(null != target) {
+         elem.classList.remove("code-highlighted");
+         target.classList.remove("code-highlighted");
+       }
+     }
+    /*]]>*///-->
+// @license-end
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">lf.el
+<br />
+<span class="subtitle">A “L”anguage “F”eatures library for Emacs Lisp</span>
+</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#Summary">1. <a href="#Summary">Summary</a></a>
+<ul>
+<li><a href="#Installation-Instructions">1.1. <a href="#Installation-Instructions">Installation Instructions</a></a></li>
+<li><a href="#Bye">1.2. <a href="#Bye">Bye!</a></a></li>
+</ul>
+</li>
+<li><a href="#Example">2. <a href="#Example">Example</a></a></li>
+</ul>
+</div>
+</div>
+<p>
+<div class="header">
+  <a href="https://alhassy.github.io/" class="logo">Life & Computing Science</a>
+  <br>
+    <a href="https://alhassy.github.io/AlBasmala">AlBasmala</a>
+    <a href="https://alhassy.github.io/archive">Archive</a>
+    <a href="https://alhassy.github.io/tags">Tags</a>
+    <a href="https://alhassy.github.io/rss.xml">RSS</a>
+    <a href="https://alhassy.github.io/about">About</a>
+</div>
+        <style>
+        /* From: https://endlessparentheses.com/public/css/endless.css */
+        /* See also: https://meta.superuser.com/questions/4788/css-for-the-new-kbd-style */
+        kbd
+        {
+          -moz-border-radius: 6px;
+          -moz-box-shadow: 0 1px 0 rgba(0,0,0,0.2),0 0 0 2px #fff inset;
+          -webkit-border-radius: 6px;
+          -webkit-box-shadow: 0 1px 0 rgba(0,0,0,0.2),0 0 0 2px #fff inset;
+          background-color: #f7f7f7;
+          border: 1px solid #ccc;
+          border-radius: 6px;
+          box-shadow: 0 1px 0 rgba(0,0,0,0.2),0 0 0 2px #fff inset;
+          color: #333;
+          display: inline-block;
+          font-family: 'Droid Sans Mono', monospace;
+          font-size: 80%;
+          font-weight: normal;
+          line-height: inherit;
+          margin: 0 .1em;
+          padding: .08em .4em;
+          text-shadow: 0 1px 0 #fff;
+          word-spacing: -4px;
+
+          box-shadow: 2px 2px 2px #222; /* MA: An extra I've added. */
+        }
+        </style>
+        <link rel="stylesheet" type="text/css" href="https://alhassy.github.io/org-special-block-extras/tooltipster/dist/css/tooltipster.bundle.min.css"/>
+
+        <link rel="stylesheet" type="text/css" href="https://alhassy.github.io/org-special-block-extras/tooltipster/dist/css/plugins/tooltipster/sideTip/themes/tooltipster-sideTip-punk.min.css" />
+
+        <script type="text/javascript">
+            if (typeof jQuery == 'undefined') {
+                document.write(unescape('%3Cscript src="https://code.jquery.com/jquery-1.10.0.min.js"%3E%3C/script%3E'));
+            }
+        </script>
+
+         <script type="text/javascript"            src="https://alhassy.github.io/org-special-block-extras/tooltipster/dist/js/tooltipster.bundle.min.js"></script>
+
+          <script>
+                 $(document).ready(function() {
+                     $('.tooltip').tooltipster({
+                         theme: 'tooltipster-punk',
+                         contentAsHTML: true,
+                         animation: 'grow',
+                         delay: [100,500],
+                         // trigger: 'click'
+                         trigger: 'custom',
+                         triggerOpen: {
+                             mouseenter: true
+                         },
+                         triggerClose: {
+                             originClick: true,
+                             scroll: true
+                         }
+         });
+                 });
+             </script>
+
+        <style>
+           abbr {color: red;}
+
+           .tooltip { border-bottom: 1px dotted #000;
+                      color:red;
+                      text-decoration: none;}
+        </style>
+        <meta name="author" content="Musa Al-hassy">
+    <meta name="referrer" content="no-referrer"><link href="usual-org-front-matter.css" rel="stylesheet" type="text/css" /><link href="org-notes-style.css" rel="stylesheet" type="text/css" /><link href="floating-toc.css" rel="stylesheet" type="text/css" /><link href="blog-banner.css" rel="stylesheet" type="text/css" /><link rel="icon" href="images/favicon.png"><script type="text/javascript">
+   /*
+   @licstart  The following is the entire license notice for the
+   JavaScript code in this tag.
+
+   Copyright (C) 2012-2020 Free Software Foundation, Inc.
+
+   The JavaScript code in this tag is free software: you can
+   redistribute it and/or modify it under the terms of the GNU
+   General Public License (GNU GPL) as published by the Free Software
+   Foundation, either version 3 of the License, or (at your option)
+   any later version.  The code is distributed WITHOUT ANY WARRANTY;
+   without even the implied warranty of MERCHANTABILITY or FITNESS
+   FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+   As additional permission under GNU GPL version 3 section 7, you
+   may distribute non-source (e.g., minimized or compacted) forms of
+   that code without the copy of the GNU GPL normally required by
+   section 4, provided you include this license notice and a URL
+   through which recipients can access the Corresponding Source.
+
+
+   @licend  The above is the entire license notice
+   for the JavaScript code in this tag.
+   */
+   <!--/*--><![CDATA[/*><!--*/
+    function CodeHighlightOn(elem, id)
+    {
+      var target = document.getElementById(id);
+      if(null != target) {
+        elem.cacheClassElem = elem.className;
+        elem.cacheClassTarget = target.className;
+        target.className = "code-highlighted";
+        elem.className   = "code-highlighted";
+      }
+    }
+    function CodeHighlightOff(elem, id)
+    {
+      var target = document.getElementById(id);
+      if(elem.cacheClassElem)
+        elem.className = elem.cacheClassElem;
+      if(elem.cacheClassTarget)
+        target.className = elem.cacheClassTarget;
+    }
+   /*]]>*///-->
+   </script><link href="https://alhassy.github.io/org-notes-style.css" rel="stylesheet" type="text/css" /><link href="https://alhassy.github.io/floating-toc.css" rel="stylesheet" type="text/css" /><link href="https://alhassy.github.io/blog-banner.css" rel="stylesheet" type="text/css" /><br><center><h1>lf.el</h1></center>
+</p>
+
+<div align=\"center\">
+
+</div>
+
+<div align="center">
+
+<p>
+<a href="https://github.com/alhassy/lf"><img src="https://img.shields.io/badge/lf-1.0-informational?logo=Gnu-Emacs"></a>
+</p>
+
+<p>
+<a href="https://twitter.com/intent/tweet?text=This looks super neat (•̀ᴗ•́)و::&url=https://github.com/alhassy/lf"><img src="https://img.shields.io/twitter/url?url=https://github.com/alhassy/lf"></a>
+<a href="https://github.com/alhassy/lf/issues"><img src="https://img.shields.io/badge/contributions-welcome-green?logo=nil"></a>
+</p>
+
+<p>
+<a href="https://alhassy.github.io/"><img src="https://img.shields.io/badge/author-musa_al--hassy-purple?logo=nintendo-3ds"></a>
+<a href="https://www.buymeacoffee.com/alhassy"><img src="https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee"></a>
+</p>
+
+<p>
+<a href="https://alhassy.github.io/lf.el"><img src="https://img.shields.io/badge/beautiful-HTML_webpage-success?logo=Org-mode"></a>
+(•̀ᴗ•́)و
+</p>
+
+</div>
+
+
+<div id="orgaf16307" class="figure">
+<p><img src="images/lf-define.png" alt="lf-define.png" width="650px" />
+</p>
+</div>
+
+<div id="outline-container-Summary" class="outline-2">
+<h2 id="Summary"><span class="section-number-2">1</span> <a href="#Summary">Summary</a></h2>
+<div class="outline-text-2" id="text-Summary">
+<p>
+<a class="anchor" aria-hidden="true" id="summary" href="#summary"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16
+   16" width="16" height="16"><path fill-rule="evenodd"
+   d="M4 9h1v1H4c-1.5 0-3-1.69-3-3.5S2.55 3 4 3h4c1.45 0 3 1.69
+   3 3.5 0 1.41-.91 2.72-2 3.25V8.59c.58-.45 1-1.27 1-2.09C10
+   5.22 8.98 4 8 4H4c-.98 0-2 1.22-2 2.5S3 9 4 9zm9-3h-1v1h1c1 0
+   2 1.22 2 2.5S13.98 12 13 12H9c-.98 0-2-1.22-2-2.5
+   0-.83.42-1.64 1-2.09V6.25c-1.09.53-2 1.84-2 3.25C6 11.31 7.55
+   13 9 13h4c1.45 0 3-1.69 3-3.5S14.5 6 13 6z"></path></svg></a>
+</p>
+
+<table border="2" cellspacing="0" cellpadding="6" rules="groups" frame="hsides">
+
+
+<colgroup>
+<col  class="org-left" />
+
+<col  class="org-left" />
+</colgroup>
+<thead>
+<tr>
+<th scope="col" class="org-left">“L”anguage “F”eature</th>
+<th scope="col" class="org-left">Implementation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="org-left">Singular interface for variable &amp; function definitions</td>
+<td class="org-left"><code>lf-define</code></td>
+</tr>
+
+<tr>
+<td class="org-left">Interface for <i>typed</i> variables &amp; functions</td>
+<td class="org-left"><code>lf-define</code></td>
+</tr>
+
+<tr>
+<td class="org-left">Singular interface for unbinding variable &amp; function names</td>
+<td class="org-left"><code>lf-undefine</code></td>
+</tr>
+</tbody>
+<tbody>
+<tr>
+<td class="org-left">Singular interface for documentation retrieval &amp; assignment</td>
+<td class="org-left"><code>lf-documentation</code></td>
+</tr>
+</tbody>
+<tbody>
+<tr>
+<td class="org-left">Helper utility for <code>&amp;optional</code> and <code>&amp;rest</code> arguments</td>
+<td class="org-left"><code>lf-extract-optionals-from-rest</code></td>
+</tr>
+</tbody>
+</table>
+
+<details class="code-details"
+                 style ="padding: 1em;
+                          background-color: #e5f5e5;
+                          /* background-color: pink; */
+                          border-radius: 15px;
+                          color: hsl(157 75%);
+                          font-size: 0.9em;
+                          box-shadow: 0.05em 0.1em 5px 0.01em  #00000057;">
+                  <summary>
+                    <strong>
+                      <font face="Courier" size="3" color="green">
+                         lf-define --documentation
+                      </font>
+                    </strong>
+                  </summary>
+<p>
+lf-define  ≈  setq + defvar + defun + setf.
+</p>
+
+<p>
+This is a unified variable/function definition interface.
+</p>
+
+<ol class="org-ol">
+<li><p>
+It can be used to define both variables and functions.
+</p>
+
+<p>
+(lf-define age 29 "How old am I?")
+</p>
+
+<p>
+(lf-define greet (name)
+  "Say hello to NAME"
+  (message-box "Hello, %s!" name))
+</p>
+
+<p>
+The documentation string for variables is optional, as with functions.
+</p></li>
+
+<li><p>
+It can be used to define <b>constrained</b> variables.
+The following two uses are equivalent; the first uses <b>type specifiers</b>,
+whereas the second uses an arbitrary predicate with the name ‘it’ referring
+to the name being defined.
+</p>
+
+<p>
+(lf-define age 0 (:type integer (satisfies (lambda (value) (&lt;= 0 value 100)))))
+</p>
+
+<p>
+(lf-define age 0 (and (integerp it) (&lt;= 0 it 100)))
+</p>
+
+<p>
+Initial/new values not satifying the requested constraints result in an error.
+</p>
+
+<p>
+If no constraint is declared, then the ‘lf-define’ is considered to be an update
+and so the most recent constraint is used to check the validity of the new value.
+(Constraints are kept in the variable’s property list.)
+Constraints are also checked whenever the variable is set with ‘setq’.
+</p>
+
+<p>
+If a constraint is declared and the initial value does not sastisfy it, then
+the name being defined is made unbound, not defined at all.
+</p>
+
+<p>
+(lf-define age 0 (:type nil)) ;; Error; ‘age’ now unbound.
+</p></li>
+
+<li><p>
+If PLACE is a non-atomic form, then we default to using ‘setf’.
+</p>
+
+<p>
+(lf-define foods ’(apple banana))
+</p>
+
+<p>
+(lf-define (car foods) ’pineapple)
+(assert (equal foods ’(pineapple banana)))
+</p></li>
+</ol>
+
+
+</details>
+
+
+<details class="code-details"
+                 style ="padding: 1em;
+                          background-color: #e5f5e5;
+                          /* background-color: pink; */
+                          border-radius: 15px;
+                          color: hsl(157 75%);
+                          font-size: 0.9em;
+                          box-shadow: 0.05em 0.1em 5px 0.01em  #00000057;">
+                  <summary>
+                    <strong>
+                      <font face="Courier" size="3" color="green">
+                         lf-undefine --documentation
+                      </font>
+                    </strong>
+                  </summary>
+<p>
+Ensure SYMBOLS are undefined, as variables and functions.
+</p>
+
+
+<p>
+Zeros out var’s plist and deletes associated variable watchers.
+</p>
+
+<p>
+Useful for testing.
+</p>
+
+<p>
+(fn &amp;body SYMBOLS)
+</p>
+
+
+</details>
+
+
+<details class="code-details"
+                 style ="padding: 1em;
+                          background-color: #e5f5e5;
+                          /* background-color: pink; */
+                          border-radius: 15px;
+                          color: hsl(157 75%);
+                          font-size: 0.9em;
+                          box-shadow: 0.05em 0.1em 5px 0.01em  #00000057;">
+                  <summary>
+                    <strong>
+                      <font face="Courier" size="3" color="green">
+                         lf-documentation --documentation
+                      </font>
+                    </strong>
+                  </summary>
+<p>
+Essentially, ‘lf-documentation’ ≈ ‘documentation’ + ‘documentation-property’.
+</p>
+
+<p>
+By default, Emacs Lisp’s ‘documentation’ returns the function documentation of
+a given symbol. As such, ours will be biased towards variable documentation.
+</p>
+
+<p>
+(lf-documentation NAME ’function)  ≋  (documentation NAME)
+</p>
+
+
+</details>
+
+
+<details class="code-details"
+                 style ="padding: 1em;
+                          background-color: #e5f5e5;
+                          /* background-color: pink; */
+                          border-radius: 15px;
+                          color: hsl(157 75%);
+                          font-size: 0.9em;
+                          box-shadow: 0.05em 0.1em 5px 0.01em  #00000057;">
+                  <summary>
+                    <strong>
+                      <font face="Courier" size="3" color="green">
+                         lf-extract-optionals-from-rest --documentation
+                      </font>
+                    </strong>
+                  </summary>
+<p>
+Provide a way to support &amp;optional and &amp;rest arguments of a particular shape.
+</p>
+
+<p>
+For example, in ‘defun’ one may provide an optional docstring;
+likewise in ‘lf-define’ one may provide a docstring but no vector
+of constraints, or any other such mixture. This metod ensures the
+right variable refers to the right thing.
+</p>
+
+<p>
+Return a list of length 3: The first being a vector or nil, the
+second being a string or nil, and the last being a list.
+</p>
+
+<p>
+VEC and STR are the values of &amp;optional arguments that
+are intended to be a vector and a string argument, respectively.
+REST is the value of a &amp;rest argument; i.e., a list.
+</p>
+
+
+</details>
+</div>
+
+
+<div id="outline-container-Installation-Instructions" class="outline-3">
+<h3 id="Installation-Instructions"><span class="section-number-3">1.1</span> <a href="#Installation-Instructions">Installation Instructions</a></h3>
+<div class="outline-text-3" id="text-Installation-Instructions">
+<p>
+Manually or using <a href="https://github.com/alhassy/emacs.d#installing-emacs-packages-directly-from-source">quelpa</a>:
+</p>
+<div class="org-src-container">
+<pre class="src src-emacs-lisp"><span style="color: #2aa1ae; background-color: #ecf3ec;">;; </span><span style="color: #2aa1ae; background-color: #ecf3ec;">&#10216;0&#10217; Download the lf.el file manually or using quelpa</span>
+(<span style="color: #6c3163; font-weight: bold;">quelpa</span> '(lf <span style="color: #3a81c3;">:fetcher</span> github <span style="color: #3a81c3;">:repo</span> <span style="color: #2d9574;">"alhassy/lf"</span>))
+</pre>
+</div>
+
+<p>
+Not yet on Melpa&#x2026; awaiting approval.
+</p>
+</div>
+</div>
+
+<div id="outline-container-Bye" class="outline-3">
+<h3 id="Bye"><span class="section-number-3">1.2</span> <a href="#Bye">Bye!</a></h3>
+<div class="outline-text-3" id="text-Bye">
+<p>
+<img src="https://img.shields.io/badge/thanks-for_reading-nil?logo=nil">
+<a href="https://twitter.com/intent/tweet?text=This looks super neat (•̀ᴗ•́)و::&url=https://github.com/alhassy/lf"><img src="https://img.shields.io/twitter/url?url=https://github.com/alhassy/lf"></a>
+<a href="https://www.buymeacoffee.com/alhassy"><img src="https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee"></a>
+</p>
+</div>
+</div>
+</div>
+
+<div id="outline-container-Example" class="outline-2">
+<h2 id="Example"><span class="section-number-2">2</span> <a href="#Example">Example</a></h2>
+<div class="outline-text-2" id="text-Example">
+<p>
+This example comes from <code>tests.el</code>, our test suite.
+</p>
+
+<p>
+Let's define a function and place some constraints on its inputs and output&#x2026;
+</p>
+<div class="org-src-container">
+<pre class="src src-emacs-lisp">(<span style="color: #3a81c3; font-weight: bold;">lf-define</span> <span style="color: #6c3163; font-weight: bold;">speak</span> (name age)
+    [<span style="color: #3a81c3;">:requires</span> (<span style="color: #3a81c3; font-weight: bold;">and</span> (<span style="color: #6c3163; font-weight: bold;">stringp</span> name) (<span style="color: #6c3163; font-weight: bold;">integerp</span> age))
+     <span style="color: #3a81c3;">:ensures</span> (<span style="color: #6c3163; font-weight: bold;">stringp</span> result)]
+    <span style="color: #2d9574;">"Greet person NAME with their AGE."</span>
+    (<span style="color: #6c3163; font-weight: bold;">format</span> <span style="color: #2d9574;">"Hello %s year-old %s!"</span> age name))
+&#8658; <span style="color: #6c3163; font-weight: bold;">speak</span>
+
+
+<span style="color: #2aa1ae; background-color: #ecf3ec;">;; </span><span style="color: #2aa1ae; background-color: #ecf3ec;">Docstring is present</span>
+(<span style="color: #6c3163; font-weight: bold;">documentation-property</span> '<span style="color: #6c3163; font-weight: bold;">speak</span> 'function-documentation)
+&#8658; <span style="color: #2d9574;">"This function has :around advice: &#8216;</span><span style="color: #4e3163;">lf--typing-advice/speak</span><span style="color: #2d9574;">&#8217;.</span>
+
+<span style="color: #2d9574;">Greet person NAME with their AGE.</span>
+
+<span style="color: #2d9574;">(fn NAME AGE)"</span>
+
+
+<span style="color: #2aa1ae; background-color: #ecf3ec;">;; </span><span style="color: #2aa1ae; background-color: #ecf3ec;">Type-satisfied inputs yield an output</span>
+(<span style="color: #6c3163; font-weight: bold;">speak</span> <span style="color: #2d9574;">"musa"</span> 29)
+&#8658; <span style="color: #2d9574;">"Hello 29 year-old musa!"</span>
+
+
+<span style="color: #2aa1ae; background-color: #ecf3ec;">;; </span><span style="color: #2aa1ae; background-color: #ecf3ec;">Type-invalid inputs yield an error</span>
+(<span style="color: #6c3163; font-weight: bold;">speak</span> 'musa 29)           <span style="color: #2aa1ae; background-color: #ecf3ec;">;; </span><span style="color: #2aa1ae; background-color: #ecf3ec;">i.e., symbol &#8800; string.</span>
+&#8658;  <span style="color: #2d9574;">"Error: Requirements for &#8220;speak&#8221; have been violated.</span>
+
+<span style="color: #2d9574;">   REQUIRED:</span>
+<span style="color: #2d9574;">   (and</span>
+<span style="color: #2d9574;">    (stringp name)</span>
+<span style="color: #2d9574;">    (integerp age))</span>
+
+<span style="color: #2d9574;">   GIVEN:</span>
+<span style="color: #2d9574;">   ((name = musa : symbol)</span>
+<span style="color: #2d9574;">    (age = 29 : integer))   "</span>)
+
+</pre>
+</div>
+
+<p>
+If we had defined our function incorrectly; i.e., not adhering to the
+constraints then we are notified whenever we call it!
+</p>
+
+<div class="org-src-container">
+<pre class="src src-emacs-lisp">(<span style="color: #3a81c3; font-weight: bold;">lf-define</span> <span style="color: #6c3163; font-weight: bold;">speak</span> (name age)
+    [<span style="color: #3a81c3;">:requires</span> (<span style="color: #3a81c3; font-weight: bold;">and</span> (<span style="color: #6c3163; font-weight: bold;">stringp</span> name) (<span style="color: #6c3163; font-weight: bold;">integerp</span> age))
+     <span style="color: #3a81c3;">:ensures</span> (<span style="color: #6c3163; font-weight: bold;">stringp</span> result)]
+    <span style="color: #2d9574;">"Greet person NAME with their AGE."</span>
+    123) <span style="color: #2aa1ae; background-color: #ecf3ec;">;; </span><span style="color: #2aa1ae; background-color: #ecf3ec;">Whoops, we implemented the wrong thing: Result is not a string!</span>
+&#8658; <span style="color: #6c3163; font-weight: bold;">speak</span>
+
+
+<span style="color: #2aa1ae; background-color: #ecf3ec;">;; </span><span style="color: #2aa1ae; background-color: #ecf3ec;">An informative message whenever we try to use our poorly implemented function</span>
+(<span style="color: #6c3163; font-weight: bold;">speak</span> <span style="color: #2d9574;">"Musa"</span> 29)
+&#8658;  <span style="color: #2d9574;">"Panic! There is an error in the implementation of &#8220;speak&#8221;.</span>
+
+<span style="color: #2d9574;">Claimed guarantee: (stringp result)</span>
+
+<span style="color: #2d9574;">Actual result value: 123 ---typed: integer"</span>
+Mark <span style="color: #6c3163; font-weight: bold;">set</span>
+</pre>
+</div>
+
+<p>
+There are more examples in <code>tests.el</code>.
+</p>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: <a href="https://alhassy.github.io/">Musa Al-hassy</a></p>
+<p class="date">Created: 2021-07-15 Thu 20:45</p>
+<p class="validation"><a href="https://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
