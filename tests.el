@@ -24,9 +24,15 @@
 
 DESC is a string, TAGS is a vector.
 
+The first tag should be the name of the main function being tested;
+this name is prepended to the name of underlying ert-deftest.
+This way, tests are grouped/namespaced when running ert from the command line.
+
 Example ERT call: (ert '(tag my-cool-tag))"
   `(ert-deftest ,(intern
-                  (concat (seq-map (lambda (c) (if (<= 65 c 122) c ?_))
+                  (concat
+                   (format "%s::" (seq-elt tags 0))
+                   (seq-map (lambda (c) (if (<= 65 c 122) c ?_))
                                    desc))) ()
      :tags (quote ,(seq--into-list tags))
      ,@body))
@@ -110,23 +116,129 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
   ;; … followed by a non-string; i.e., the start of the rest
   (⇒ [] 'y '(z) :becomes [] nil (y z)))
 
-(ert-deftest lf/define/vars-and-functions ()
-  :tags '(define)
-  (lf-undefine age speak) ;; Ensure we have undefined names to use.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; lf-define ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(deftest "We can define both variables and functions"
+  [lf-define]
+
+  (lf-undefine age speak) ;; Ensure we have undefined names to use.
   (lf-define age 29)
   (≋ age 29)
 
   (lf-define speak (name) (format "Hello, %s!" name))
   (≋ (speak 'bob) "Hello, bob!"))
 
-(ert-deftest lf/define/setf ()
- ;; If PLACE is a non-atomic form, then we default to using ‘setf’.
+(deftest "If PLACE is a non-atomic form, then we default to using ‘setf’."
+  [lf-define setf]
+  (lf-undefine foods)
+  (lf-define foods '(apple banana))
+  (lf-define (car foods) 'pineapple)
+  (≋ foods '(pineapple banana)))
 
-    (lf-undefine foods)
-    (lf-define foods '(apple banana))
-    (lf-define (car foods) 'pineapple)
-    (≋ foods '(pineapple banana)))
+(deftest "It “zaps”:  (lf-define x (f it))  ≈  (setq x (f x))"
+  [lf-define]
+
+  ;; A super simple zap!
+  (lf-define x 12)
+  (lf-define x (+ it 1))  ;; Note the ‘it’
+  (≋ x 13)
+
+  ;; Let's see a lengthier example, without zapping
+  (lf-undefine age)
+  (lf-define age 12)
+  (setf (documentation-property 'age 'variable-documentation)
+        (or "Ugly way to update docs" (documentation-property 'age 'variable-documentation)))
+  (≋ "Ugly way to update docs" (documentation-property 'age 'variable-documentation))
+
+  ;; Zap!
+  (lf-define (documentation-property 'age 'variable-documentation)
+             (or "New way to update docs" it))
+  (≋ "New way to update docs" (documentation-property 'age 'variable-documentation))
+
+  ;; Another zap!
+  (lf-define (documentation-property 'age 'variable-documentation)
+             (format "woah, %s" it))
+  (≋ "woah, New way to update docs" (documentation-property 'age 'variable-documentation)))
+
+(deftest "It documents variables"
+  [lf-define]
+  (lf-undefine age) ;; Ensure we have undefined names to use.
+  (lf-define age 29 "How old am I?")
+  (≋ (lf-documentation 'age) "How old am I?"))
+
+(deftest "It can define strings, which can also be documented"
+  [lf-define]
+  (lf-undefine name)
+  (lf-define name "Bobert" "What is my name?")
+  (≋ (lf-documentation 'name) "What is my name?"))
+
+(deftest "It can define strings, which do not need documentation"
+  [lf-define]
+  (lf-undefine name)
+  (lf-define name "Bobert")
+  (≋ name "Bobert")
+  (≋ (lf-documentation 'name) nil))
+
+(deftest "It can define strings, with typing and docstrings"
+  [lf-define]
+  (lf-undefine name)
+  (lf-define name "Bobert" [:type string] "What is my name?")
+  (≋ (lf-documentation 'name) "What is my name?"))
+
+(deftest "It can define strings with types, but do docstring"
+  [lf-define]
+  (lf-undefine name)
+  (lf-define name "Bobert" [:type string])
+  (≋ (lf-documentation 'name) nil)
+  (≋ name "Bobert"))
+
+;; The new constraints are not checked against the new value!
+(ert-deftest lf/define/new-constraints ()
+   (lf-undefine age)
+   (lf-define age "12" [:type string])
+   (↯ (lf-define agr "12" [(and (integerp it) (stringp it))]))   ;; See, new constraints not checked!
+   (↯ (lf-define age "123"
+              [(and (integerp it) (<= 0 it 10))])))
+
+;;  Type specifier vs predicates; both work 😄
+(ert-deftest  lf/define/type-specifiers ()
+  (lf-undefine age x)
+
+  (✓ (lf-define age 12 [:type (integer 0 100)]))
+  (× (lf-define age 123 [:type (integer 0 100)]))
+
+  (✓ (lf-define age 12 [(and (integerp it) (<= 0 it 100))]))
+  (× (lf-define age 123 [(and (integerp it) (<= 0 it 100))]))
+
+  ;; (✓ (lf-define x 0 [:type (not null)] "hiya"))
+  ;; (should-error (lf-define x nil)) ;; Error: New value violates existing constraints.
+  ;; (✓ (lf-define x nil [:any-type] "oki")) ;; OK, redefine x to have always truthy constraints, “:any-type”. FIXME
+)
+
+(ert-deftest lf/define/vars/vectors/documented ()
+  :tags '(define)
+  (lf-undefine foods) ;; Ensure we have undefined names to use.
+
+  (lf-define foods [shorba dolma] "What Iraqi foods do I like?")
+  (≋ foods [shorba dolma])
+  (≋ (documentation-property 'foods 'variable-documentation) "What Iraqi foods do I like?"))
+
+(ert-deftest lf/define/vars/vectors/no-docs ()
+  :tags '(define)
+  (lf-undefine foods) ;; Ensure we have undefined names to use.
+
+  (lf-define foods [shorba dolma])
+  (≋ foods [shorba dolma])
+  (≋ (documentation-property 'foods 'variable-documentation) nil))
+
+(ert-deftest lf/define/vars/vectors/not-documented-but-typed ()
+  :tags '(define)
+  (lf-undefine foods) ;; Ensure we have undefined names to use.
+
+  (lf-define foods [shorba dolam] [:type vector])
+  (≋ (documentation-property 'foods 'variable-documentation) nil)
+  (≋ foods [shorba dolam]))
 
 (ert-deftest lf/define/documentation/functions ()
   :tags '(define)
@@ -301,109 +413,3 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
     ;; GIVEN:
     ;; ((name has value whoops which is typed: symbol)
     ;;  (age has value 12 which is typed: integer))"
-
-(ert-deftest lf/define/documentation/vars ()
-  :tags '(define)
-  (lf-undefine age) ;; Ensure we have undefined names to use.
-
-  (lf-define age 29 "How old am I?")
-  (≋ (documentation-property 'age 'variable-documentation) "How old am I?"))
-
-(ert-deftest lf/define/vars/strings/documented ()
-  :tags '(define)
-  (lf-undefine name) ;; Ensure we have undefined names to use.
-
-  (lf-define name "Bobert" "What is my name?")
-  (≋ (documentation-property 'name 'variable-documentation) "What is my name?"))
-
-(ert-deftest lf/define/vars/strings/no-docs ()
-  :tags '(define)
-  (lf-undefine name) ;; Ensure we have undefined names to use.
-
-  (lf-define name "Bobert")
-  (≋ name "Bobert")
-  (≋ (documentation-property 'name 'variable-documentation) nil))
-
-(ert-deftest lf/define/vars/strings/documented-and-typed ()
-  :tags '(define)
-  (lf-undefine name) ;; Ensure we have undefined names to use.
-
-  (lf-define name "Bobert" [:type string] "What is my name?")
-  (≋ (documentation-property 'name 'variable-documentation) "What is my name?"))
-
-(ert-deftest lf/define/vars/strings/not-documented-but-typed ()
-  :tags '(define)
-  (lf-undefine name) ;; Ensure we have undefined names to use.
-
-  (lf-define name "Bobert" [:type string])
-  (≋ (documentation-property 'name 'variable-documentation) nil)
-  (≋ name "Bobert"))
-
-(ert-deftest lf/define/vars/vectors/documented ()
-  :tags '(define)
-  (lf-undefine foods) ;; Ensure we have undefined names to use.
-
-  (lf-define foods [shorba dolma] "What Iraqi foods do I like?")
-  (≋ foods [shorba dolma])
-  (≋ (documentation-property 'foods 'variable-documentation) "What Iraqi foods do I like?"))
-
-(ert-deftest lf/define/vars/vectors/no-docs ()
-  :tags '(define)
-  (lf-undefine foods) ;; Ensure we have undefined names to use.
-
-  (lf-define foods [shorba dolma])
-  (≋ foods [shorba dolma])
-  (≋ (documentation-property 'foods 'variable-documentation) nil))
-
-(ert-deftest lf/define/vars/vectors/not-documented-but-typed ()
-  :tags '(define)
-  (lf-undefine foods) ;; Ensure we have undefined names to use.
-
-  (lf-define foods [shorba dolam] [:type vector])
-  (≋ (documentation-property 'foods 'variable-documentation) nil)
-  (≋ foods [shorba dolam]))
-
-(ert-deftest lf/define/zap () ;; (lf-define x (f it))  ≈  (setq x (f x))
-   (lf-define age 12)
-
-   (setf (documentation-property 'age 'variable-documentation)
-         (or "Ugly way to update docs" (documentation-property 'age 'variable-documentation)))
-
-   (≋ "Ugly way to update docs" (documentation-property 'age 'variable-documentation))
-
-   (lf-define (documentation-property 'age 'variable-documentation)
-         (or "New way to update docs" it))
-
-   (≋ "New way to update docs" (documentation-property 'age 'variable-documentation))
-
-   (lf-define (documentation-property 'age 'variable-documentation)
-         (format "woah, %s" it))
-
-   (≋ "woah, New way to update docs" (documentation-property 'age 'variable-documentation))
-
-   (lf-define x 12)
-   (lf-define x (+ it 1))
-   (≋ x 13))
-
-;; The new constraints are not checked against the new value!
-(ert-deftest lf/define/new-constraints ()
-   (lf-undefine age)
-   (lf-define age "12" [:type string])
-   (↯ (lf-define agr "12" [(and (integerp it) (stringp it))]))   ;; See, new constraints not checked!
-   (↯ (lf-define age "123"
-              [(and (integerp it) (<= 0 it 10))])))
-
-;;  Type specifier vs predicates; both work 😄
-(ert-deftest  lf/define/type-specifiers ()
-  (lf-undefine age x)
-
-  (✓ (lf-define age 12 [:type (integer 0 100)]))
-  (× (lf-define age 123 [:type (integer 0 100)]))
-
-  (✓ (lf-define age 12 [(and (integerp it) (<= 0 it 100))]))
-  (× (lf-define age 123 [(and (integerp it) (<= 0 it 100))]))
-
-  ;; (✓ (lf-define x 0 [:type (not null)] "hiya"))
-  ;; (should-error (lf-define x nil)) ;; Error: New value violates existing constraints.
-  ;; (✓ (lf-define x nil [:any-type] "oki")) ;; OK, redefine x to have always truthy constraints, “:any-type”. FIXME
-)
