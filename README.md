@@ -13,10 +13,10 @@
 
 <div align="center">
 
-<a href="https://github.com/alhassy/lf"><img src="https://img.shields.io/badge/lf-1.0-informational?logo=Gnu-Emacs"></a>
+<a href="https://github.com/alhassy/lf.el"><img src="https://img.shields.io/badge/lf-1.0-informational?logo=Gnu-Emacs"></a>
 
-<a href="https://twitter.com/intent/tweet?text=This looks super neat (•̀ᴗ•́)و::&url=https://github.com/alhassy/lf"><img src="https://img.shields.io/twitter/url?url=https://github.com/alhassy/lf"></a>
-<a href="https://github.com/alhassy/lf/issues"><img src="https://img.shields.io/badge/contributions-welcome-green?logo=nil"></a>
+<a href="https://twitter.com/intent/tweet?text=This looks super neat (•̀ᴗ•́)و::&url=https://github.com/alhassy/lf.el"><img src="https://img.shields.io/twitter/url?url=https://github.com/alhassy/lf.el"></a>
+<a href="https://github.com/alhassy/lf.el/issues"><img src="https://img.shields.io/badge/contributions-welcome-green?logo=nil"></a>
 
 <a href="https://alhassy.github.io/"><img src="https://img.shields.io/badge/author-musa_al--hassy-purple?logo=nintendo-3ds"></a>
 <a href="https://www.buymeacoffee.com/alhassy"><img src="https://img.shields.io/badge/-buy_me_a%C2%A0coffee-gray?logo=buy-me-a-coffee"></a>

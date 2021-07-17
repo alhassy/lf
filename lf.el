@@ -105,8 +105,6 @@ Useful for testing."
              (fmakunbound sym)))
          (quote ,symbols)))
 
-(require 'cl-lib)
-
 (defun lf-extract-optionals-from-rest (vec str rest)
   "Provide a way to support &optional and &rest arguments of a particular shape.
 
@@ -121,8 +119,6 @@ second being a string or nil, and the last being a list.
 VEC and STR are the values of &optional arguments that
 are intended to be a vector and a string argument, respectively.
 REST is the value of a &rest argument; i.e., a list."
-
-  (require 'cl-lib) ;; for assert
 
   (cl-assert (listp rest))
 

@@ -1,5 +1,8 @@
+;; WARNING: This file is intended for use with the repo's Github Actions.
+;; We install some packages, possibly unneeded ones, then run the tests.
+
 (setq needed-libraries
-      '(s cl-lib dash org undercover seq quelpa))
+      '(s cl-lib dash seq))
 
 (require 'package)
 (push '("melpa" . "https://melpa.org/packages/") package-archives)
@@ -10,24 +13,102 @@
   (unless (package-installed-p pkg)
     (package-install pkg)))
 
-(defmacro deftest (desc &rest body)
-  `(ert-deftest ,(intern
-;; Convert all non-letters to ‘_’
-;; A = 65, z = 122
-(concat (seq-map (lambda (c) (if (<= 65 c 122) c ?_))
-         desc))) () ,@body))
-;; without the s-replace, “M-x ert” crashes when it comes to selecting the test to run.
-
-(defmacro ≋ (lhs rhs) `(should (equal ,lhs ,rhs)))
-
-;; https://github.com/Wilfred/propcheck
-(quelpa '(propcheck :fetcher github :repo "Wilfred/propcheck"))
-(require 'propcheck)
-(when nil ;; example use
-  (let ((propcheck-seed (propcheck-seed)))
-    (propcheck-generate-string nil)))
-
 (load-file "lf.el")
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Personal Testing Utils ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(defmacro deftest (desc tags &rest body)
+  "Declare tests with meaningful string names, that reflect the test's main goal.
+
+DESC is a string, TAGS is a vector.
+
+Example ERT call: (ert '(tag my-cool-tag))"
+  `(ert-deftest ,(intern
+                  (concat (seq-map (lambda (c) (if (<= 65 c 122) c ?_))
+                                   desc))) ()
+     :tags (quote ,(seq--into-list tags))
+     ,@body))
+  ;; Convert all non-letters to ‘_’; A = 65, z = 122.
+  ;; Without the replace, “M-x ert” crashes when it comes to selecting the test
+  ;; to run.
+
+(defmacro ≋ (lhs rhs)
+    "A shorthand for (should (equal LHS RHS))."
+    `(should (equal ,lhs ,rhs)))
+
+(defmacro ↯ (form &optional message)
+    "The given FORM should error (with MESSAGE, ignoring whitespace).
+
+Example: (↯ (error \"hola\") \"hola\")
+
+Pictogram explanation: You've made such a big mistake, that the
+heavens strike you down with a lightening bolt ↯↯"
+  (if message
+      `(should (equal (s-collapse-whitespace (cl-second (should-error ,form)))
+                      (s-collapse-whitespace ,message)))
+    `(should-error ,form)))
+
+
+;; I like the shapes: (× some-crashing-form) and (↯ crashes with-this-message)
+(defalias '✓ 'should)
+(defalias '× '↯)
+
+
+(defmacro ⇝ (expr &rest regexp)
+    "The given EXPR should match the given REGEXP, which is wrapped by ‘rx’.
+
+REGEXP could also be a string, in which case we are doing string equality.
+Either way, whitespace is ignored in both arguments.
+
+The symbol “⇝” should be read “rewrites to” or “elaborates to”.
+
+I prefer this form since it has the main form we're asserting
+against-at the forefront and makes it clear we're matching
+against strings.
+
+For example,
+
+  (should (s-matches? \"An English greeting.\" (documentation 'speak)))
+
+Becomes:
+
+  (⇝ (documentation 'speak) \"An English greeting.\")
+
+Pictogram explanation: A given expression “rewrites, reduces,” to
+a given matching pattern. Such arrows are popular in Term Rewriting Systems."
+  `(should (s-matches? (s-collapse-whitespace (rx ,(cons 'seq regexp)))
+                       (s-collapse-whitespace ,expr))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; lf-extract-optionals-from-rest ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defmacro ⇒ (x y z  _  a b c)
+    "Shorthand: (⇒ inputs :become outputs)"
+  `(≋ (lf-extract-optionals-from-rest ,x ,y ,z) (quote (,a ,b ,c))))
+
+(deftest "What if we don't have a vector first? Then we're starting the rest!"
+  [lf-extract-optionals-from-rest]
+  (⇒ nil nil nil :becomes nil nil nil)
+  (⇒ 'x nil nil :becomes nil nil (x))
+  (⇒ 'x 'y nil :becomes nil nil (x y))
+  (⇒ 'x 'y '(z) :becomes nil nil (x y z)))
+
+(deftest "What if we don't have a vector first, but have a string instead!"
+  [lf-extract-optionals-from-rest]
+  (⇒ "x" 'y '(z) :becomes nil "x" (y z))
+  (⇒ "x" 'y nil  :becomes nil "x" (y))
+  (⇒ "x" nil '(z) :becomes nil "x" (z))
+  (⇒ "x" nil nil  :becomes nil "x" nil))
+
+(deftest "What if we do have a vector first?"
+  [lf-extract-optionals-from-rest]
+  ;; … followed by a string
+  (⇒ [] "" '(z) :becomes [] "" (z))
+  (⇒ [] "" nil :becomes [] "" nil)
+  ;; … followed by a non-string; i.e., the start of the rest
+  (⇒ [] 'y '(z) :becomes [] nil (y z)))
 
 (ert-deftest lf/define/vars-and-functions ()
   :tags '(define)
@@ -39,68 +120,23 @@
   (lf-define speak (name) (format "Hello, %s!" name))
   (≋ (speak 'bob) "Hello, bob!"))
 
-(ert-deftest lf/define/documentation/vars ()
+(ert-deftest lf/define/setf ()
+ ;; If PLACE is a non-atomic form, then we default to using ‘setf’.
+
+    (lf-undefine foods)
+    (lf-define foods '(apple banana))
+    (lf-define (car foods) 'pineapple)
+    (≋ foods '(pineapple banana)))
+
+(ert-deftest lf/define/documentation/functions ()
   :tags '(define)
-  (lf-undefine age) ;; Ensure we have undefined names to use.
+  (lf-undefine speak) ;; Ensure we have undefined names to use.
 
-  (lf-define age 29 "How old am I?")
-  (≋ (documentation-property 'age 'variable-documentation) "How old am I?"))
-
-(ert-deftest lf/define/vars/strings/documented ()
-  :tags '(define)
-  (lf-undefine name) ;; Ensure we have undefined names to use.
-
-  (lf-define name "Bobert" "What is my name?")
-  (≋ (documentation-property 'name 'variable-documentation) "What is my name?"))
-
-(ert-deftest lf/define/vars/strings/no-docs ()
-  :tags '(define)
-  (lf-undefine name) ;; Ensure we have undefined names to use.
-
-  (lf-define name "Bobert")
-  (≋ name "Bobert")
-  (≋ (documentation-property 'name 'variable-documentation) nil))
-
-(ert-deftest lf/define/vars/strings/documented-and-typed ()
-  :tags '(define)
-  (lf-undefine name) ;; Ensure we have undefined names to use.
-
-  (lf-define name "Bobert" [:type string] "What is my name?")
-  (≋ (documentation-property 'name 'variable-documentation) "What is my name?"))
-
-(ert-deftest lf/define/vars/strings/not-documented-but-typed ()
-  :tags '(define)
-  (lf-undefine name) ;; Ensure we have undefined names to use.
-
-  (lf-define name "Bobert" [:type string])
-  (≋ (documentation-property 'name 'variable-documentation) nil)
-  (≋ name "Bobert")
-)
-
-(ert-deftest lf/define/vars/vectors/documented ()
-  :tags '(define)
-  (lf-undefine foods) ;; Ensure we have undefined names to use.
-
-  (lf-define foods [shorba dolma] "What Iraqi foods do I like?")
-  (≋ foods [shorba dolma])
-  (≋ (documentation-property 'foods 'variable-documentation) "What Iraqi foods do I like?"))
-
-(ert-deftest lf/define/vars/vectors/no-docs ()
-  :tags '(define)
-  (lf-undefine foods) ;; Ensure we have undefined names to use.
-
-  (lf-define foods [shorba dolma])
-  (≋ foods [shorba dolma])
-  (≋ (documentation-property 'foods 'variable-documentation) nil))
-
-(ert-deftest lf/define/vars/vectors/not-documented-but-typed ()
-  :tags '(define)
-  (lf-undefine foods) ;; Ensure we have undefined names to use.
-
-  (lf-define foods [shorba dolam] [:type vector])
-  (≋ (documentation-property 'foods 'variable-documentation) nil)
-  (≋ foods [shorba dolam])
-)
+  (lf-define speak (name) "An English greeting." (format "Hello, %s!" name))
+  (⇝ (documentation-property 'speak 'function-documentation)
+     (* anything)
+     "An English greeting."
+     (* anything)))
 
 (ert-deftest lf/define/functions/no-empty-functions ()
   :tags '(define)
@@ -140,16 +176,6 @@
   (⇝ (documentation 'f ) (* anything) "Woah!" (* anything))
 )
 
-(ert-deftest lf/define/documentation/functions ()
-  :tags '(define)
-  (lf-undefine speak) ;; Ensure we have undefined names to use.
-
-  (lf-define speak (name) "An English greeting." (format "Hello, %s!" name))
-  (⇝ (documentation-property 'speak 'function-documentation)
-     (* anything)
-     "An English greeting."
-     (* anything)))
-
 (ert-deftest lf/define/types/functions ()
   :tags '(define)
   (lf-undefine speak) ;; Ensure we have undefined names to use.
@@ -161,7 +187,7 @@
              (format "Hello %s year-old %s!" age name))
 
   ;; Docstring is present
-  (≋ₛ (documentation-property 'speak 'function-documentation)
+  (⇝ (documentation-property 'speak 'function-documentation)
      "This function has :around advice: ‘lf--typing-advice/speak’.
 
       Greet person NAME with their AGE.
@@ -194,101 +220,6 @@
      "Panic! There is an error in the implementation of “speak”.
      Claimed guarantee: (stringp result)
      Actual result value: 12 ---typed: integer"))
-
-(defmacro ↯ (form &optional message)
-    "The given FORM should error (with MESSAGE, ignoring whitespace).
-
-Example: (↯ (error \"hola\") \"hola\")
-
-Pictogram explanation: You've made such a big mistake, that the heavens strike you down with a lightening bolt ↯↯
-"
-  (if message
-      `(should (equal (s-collapse-whitespace (cl-second (should-error ,form)))
-                      (s-collapse-whitespace ,message)))
-    `(should-error ,form)))
-
-(defmacro ≋ₛ (lhs rhs)
-  "String equality, ignoring whitespace."
-  `(should (string-equal (s-collapse-whitespace ,lhs) (s-collapse-whitespace ,rhs))))
-
-(defmacro ⇝ (expr &rest regexp)
-    "The given EXPR should match the given REGEXP, which is wrapped inside ‘rx’ sequence.
-
-I prefer this form since it has the main form we're asserting against at the forefront
-and makes it clear we're matching against strings.
-
-For example,
-
-  (should (s-matches? (rx (seq (* anything)
-                               \"An English greeting.\"
-                               (* anything)))
-                      (documentation-property 'speak 'function-documentation))))
-
-Becomes:
-
-    (⇝ (documentation-property 'speak 'function-documentation)
-     (* anything)
-     \"An English greeting.\"
-     (* anything))
-
-Pictogram explanation: A given expression “rewrites, reduces,” to a given matching pattern.
-"
-  `(should (s-matches? (rx (and ,@regexp)) ,expr)))
-
-(ert-deftest lf-extract-optionals-from-rest ()
-  (defmacro ⇒ (x y z  _  a b c)
-      `(≋ (lf-extract-optionals-from-rest ,x ,y ,z) (quote (,a ,b ,c))))
-
-  ;; What if we don't have a vector first? Then we're starting the rest!
-  (⇒ nil nil nil :becomes nil nil nil)
-  (⇒ 'x nil nil :becomes nil nil (x))
-  (⇒ 'x 'y nil :becomes nil nil (x y))
-  (⇒ 'x 'y '(z) :becomes nil nil (x y z))
-
-  ;; What if we don't have a vector first, but have a string instead!
-  (⇒ "x" 'y '(z) :becomes nil "x" (y z))
-  (⇒ "x" 'y nil  :becomes nil "x" (y))
-  (⇒ "x" nil '(z) :becomes nil "x" (z))
-  (⇒ "x" nil nil  :becomes nil "x" nil)
-
-  ;; What if we do have a vector first?
-  ;; … followed by a string
-  (⇒ [] "" '(z) :becomes [] "" (z))
-  (⇒ [] "" nil :becomes [] "" nil)
-  ;; … followed by a non-string; i.e., the start of the rest
-  (⇒ [] 'y '(z) :becomes [] nil (y z))
-)
-
-(ert-deftest lf/define/zap () ;; (lf-define x (f it))  ≈  (setq x (f x))
-   (lf-define age 12)
-
-   (setf (documentation-property 'age 'variable-documentation)
-         (or "Ugly way to update docs" (documentation-property 'age 'variable-documentation)))
-
-   (≋ "Ugly way to update docs" (documentation-property 'age 'variable-documentation))
-
-   (lf-define (documentation-property 'age 'variable-documentation)
-         (or "New way to update docs" it))
-
-   (≋ "New way to update docs" (documentation-property 'age 'variable-documentation))
-
-   (lf-define (documentation-property 'age 'variable-documentation)
-         (format "woah, %s" it))
-
-   (≋ "woah, New way to update docs" (documentation-property 'age 'variable-documentation))
-
-   (lf-define x 12)
-   (lf-define x (+ it 1))
-   (≋ x 13))
-
-
-(ert-deftest lf/define/setf ()
- ;; If PLACE is a non-atomic form, then we default to using ‘setf’.
-
-    (lf-undefine foods)
-    (lf-define foods '(apple banana))
-    (lf-define (car foods) 'pineapple)
-    (≋ foods '(pineapple banana)))
 
 (ert-deftest lf/define/function/expansion ()
   (lf-undefine add)
@@ -332,16 +263,7 @@ Pictogram explanation: A given expression “rewrites, reduces,” to a given ma
    (* anything)
    "(advice-add #'add :around 'lf--typing-advice/add)"))
 
-;; The new constraints are not checked against the new value!
-(ert-deftest lf/define/new-constraints ()
-   (lf-undefine age)
-   (lf-define age "12" [:type string])
-   (↯ (lf-define agr "12" [(and (integerp it) (stringp it))]))   ;; See, new constraints not checked!
-   (↯ (lf-define age "123"
-              [(and (integerp it) (<= 0 it 10))])))
-
 (ert-deftest lf/define/ensures/failure ()
-
   (lf-undefine speak)
 
   (lf-define speak (name age)
@@ -358,7 +280,6 @@ Pictogram explanation: A given expression “rewrites, reduces,” to a given ma
 
 
 (ert-deftest lf/define/ensures/success ()
-
   (lf-undefine speak)
 
   (lf-define speak (name age)
@@ -381,9 +302,96 @@ Pictogram explanation: A given expression “rewrites, reduces,” to a given ma
     ;; ((name has value whoops which is typed: symbol)
     ;;  (age has value 12 which is typed: integer))"
 
-(defalias '✓ 'should)
-(defalias '× '↯)
-;; I like the shapes: (× some-crashing-form) and (↯ crashes with-this-message)
+(ert-deftest lf/define/documentation/vars ()
+  :tags '(define)
+  (lf-undefine age) ;; Ensure we have undefined names to use.
+
+  (lf-define age 29 "How old am I?")
+  (≋ (documentation-property 'age 'variable-documentation) "How old am I?"))
+
+(ert-deftest lf/define/vars/strings/documented ()
+  :tags '(define)
+  (lf-undefine name) ;; Ensure we have undefined names to use.
+
+  (lf-define name "Bobert" "What is my name?")
+  (≋ (documentation-property 'name 'variable-documentation) "What is my name?"))
+
+(ert-deftest lf/define/vars/strings/no-docs ()
+  :tags '(define)
+  (lf-undefine name) ;; Ensure we have undefined names to use.
+
+  (lf-define name "Bobert")
+  (≋ name "Bobert")
+  (≋ (documentation-property 'name 'variable-documentation) nil))
+
+(ert-deftest lf/define/vars/strings/documented-and-typed ()
+  :tags '(define)
+  (lf-undefine name) ;; Ensure we have undefined names to use.
+
+  (lf-define name "Bobert" [:type string] "What is my name?")
+  (≋ (documentation-property 'name 'variable-documentation) "What is my name?"))
+
+(ert-deftest lf/define/vars/strings/not-documented-but-typed ()
+  :tags '(define)
+  (lf-undefine name) ;; Ensure we have undefined names to use.
+
+  (lf-define name "Bobert" [:type string])
+  (≋ (documentation-property 'name 'variable-documentation) nil)
+  (≋ name "Bobert"))
+
+(ert-deftest lf/define/vars/vectors/documented ()
+  :tags '(define)
+  (lf-undefine foods) ;; Ensure we have undefined names to use.
+
+  (lf-define foods [shorba dolma] "What Iraqi foods do I like?")
+  (≋ foods [shorba dolma])
+  (≋ (documentation-property 'foods 'variable-documentation) "What Iraqi foods do I like?"))
+
+(ert-deftest lf/define/vars/vectors/no-docs ()
+  :tags '(define)
+  (lf-undefine foods) ;; Ensure we have undefined names to use.
+
+  (lf-define foods [shorba dolma])
+  (≋ foods [shorba dolma])
+  (≋ (documentation-property 'foods 'variable-documentation) nil))
+
+(ert-deftest lf/define/vars/vectors/not-documented-but-typed ()
+  :tags '(define)
+  (lf-undefine foods) ;; Ensure we have undefined names to use.
+
+  (lf-define foods [shorba dolam] [:type vector])
+  (≋ (documentation-property 'foods 'variable-documentation) nil)
+  (≋ foods [shorba dolam]))
+
+(ert-deftest lf/define/zap () ;; (lf-define x (f it))  ≈  (setq x (f x))
+   (lf-define age 12)
+
+   (setf (documentation-property 'age 'variable-documentation)
+         (or "Ugly way to update docs" (documentation-property 'age 'variable-documentation)))
+
+   (≋ "Ugly way to update docs" (documentation-property 'age 'variable-documentation))
+
+   (lf-define (documentation-property 'age 'variable-documentation)
+         (or "New way to update docs" it))
+
+   (≋ "New way to update docs" (documentation-property 'age 'variable-documentation))
+
+   (lf-define (documentation-property 'age 'variable-documentation)
+         (format "woah, %s" it))
+
+   (≋ "woah, New way to update docs" (documentation-property 'age 'variable-documentation))
+
+   (lf-define x 12)
+   (lf-define x (+ it 1))
+   (≋ x 13))
+
+;; The new constraints are not checked against the new value!
+(ert-deftest lf/define/new-constraints ()
+   (lf-undefine age)
+   (lf-define age "12" [:type string])
+   (↯ (lf-define agr "12" [(and (integerp it) (stringp it))]))   ;; See, new constraints not checked!
+   (↯ (lf-define age "123"
+              [(and (integerp it) (<= 0 it 10))])))
 
 ;;  Type specifier vs predicates; both work 😄
 (ert-deftest  lf/define/type-specifiers ()
@@ -399,6 +407,3 @@ Pictogram explanation: A given expression “rewrites, reduces,” to a given ma
   ;; (should-error (lf-define x nil)) ;; Error: New value violates existing constraints.
   ;; (✓ (lf-define x nil [:any-type] "oki")) ;; OK, redefine x to have always truthy constraints, “:any-type”. FIXME
 )
-
-;; Already in tests.el; for reference:
-;; (defmacro ≋ (lhs rhs) `(should (equal ,lhs ,rhs)))
