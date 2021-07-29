@@ -194,64 +194,63 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
   (≋ name "Bobert"))
 
 ;; The new constraints are not checked against the new value!
-(ert-deftest lf/define/new-constraints ()
-   (lf-undefine age)
-   (lf-define age "12" [:type string])
-   (↯ (lf-define agr "12" [(and (integerp it) (stringp it))]))   ;; See, new constraints not checked!
-   (↯ (lf-define age "123"
-              [(and (integerp it) (<= 0 it 10))])))
+(deftest "New constraints on variables override any existing ones"
+  [lf-define]
+  (lf-undefine age)
 
-;;  Type specifier vs predicates; both work 😄
-(ert-deftest  lf/define/type-specifiers ()
-  (lf-undefine age x)
+  ;; Initial value satisfies declared constraints
+  (lf-define age "12" [:type string])
 
-  (✓ (lf-define age 12 [:type (integer 0 100)]))
-  (× (lf-define age 123 [:type (integer 0 100)]))
+  ;; New *initial* value satisifes OLD constraints, which are dismissed
+  ;; in-favour of the newly declared constraints. The new value does not
+  ;; satisfy the new constraints.
+  (↯ (lf-define age "12" [(and (integerp it) (stringp it))])
+      "Error: Initial value “12” violates declared constraint:
+        (and (and (integerp it) (stringp it)))
 
-  (✓ (lf-define age 12 [(and (integerp it) (<= 0 it 100))]))
-  (× (lf-define age 123 [(and (integerp it) (<= 0 it 100))]))
+       As such, symbol “age” is now unbound and unconstrained.")
 
-  ;; (✓ (lf-define x 0 [:type (not null)] "hiya"))
-  ;; (should-error (lf-define x nil)) ;; Error: New value violates existing constraints.
-  ;; (✓ (lf-define x nil [:any-type] "oki")) ;; OK, redefine x to have always truthy constraints, “:any-type”. FIXME
-)
+  ;; New initial value satisfies the newly declared constraints
+  (✓ (lf-define age 9 [(and (integerp it) (<= 0 it 10))]))
 
-(ert-deftest lf/define/vars/vectors/documented ()
-  :tags '(define)
+  ;; Yet again...
+  (lf-undefine age) ;; Ensure we have undefined names to use.
+  (✓ (lf-define age 29 [:type integer] "How old am I?")) ;; OK
+  (✓ (lf-define age "twenty-nine" [:type string] "How old am I?")) ;; OK
+  (✓ (lf-define age 'twenty-nine [:type symbol])) ;; OK
+  )
+
+(deftest "It allows us to define documented vector variables"
+  [lf-define]
   (lf-undefine foods) ;; Ensure we have undefined names to use.
-
   (lf-define foods [shorba dolma] "What Iraqi foods do I like?")
   (≋ foods [shorba dolma])
   (≋ (documentation-property 'foods 'variable-documentation) "What Iraqi foods do I like?"))
 
-(ert-deftest lf/define/vars/vectors/no-docs ()
-  :tags '(define)
+(deftest "It allows us to define undocumented vector variables"
+  [lf-define]
   (lf-undefine foods) ;; Ensure we have undefined names to use.
-
   (lf-define foods [shorba dolma])
   (≋ foods [shorba dolma])
   (≋ (documentation-property 'foods 'variable-documentation) nil))
 
-(ert-deftest lf/define/vars/vectors/not-documented-but-typed ()
-  :tags '(define)
+(deftest "It allows us to define undocumented but typed vector variables"
+  [lf-define]
   (lf-undefine foods) ;; Ensure we have undefined names to use.
-
   (lf-define foods [shorba dolam] [:type vector])
   (≋ (documentation-property 'foods 'variable-documentation) nil)
   (≋ foods [shorba dolam]))
 
-(ert-deftest lf/define/documentation/functions ()
-  :tags '(define)
+(deftest "It defines documented functions"
+  [lf-define]
   (lf-undefine speak) ;; Ensure we have undefined names to use.
-
   (lf-define speak (name) "An English greeting." (format "Hello, %s!" name))
-  (⇝ (documentation-property 'speak 'function-documentation)
-     (* anything)
-     "An English greeting."
-     (* anything)))
+  (⇝ (documentation #'speak) "An English greeting."))
 
-(ert-deftest lf/define/functions/no-empty-functions ()
-  :tags '(define)
+;; lf-define does not allow the direct definition of empty functions (always “nil”
+;; functions), which is okay since they are seldom used in practice.
+(deftest "It does not allow the direct definition of empty functions"
+  [lf-define]
 
   (lf-undefine f)
   (lf-define f ()) ;; Warning: This is not the empty function; but is the empty list!
@@ -270,7 +269,7 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
 
   (lf-undefine id) ;; Ensure we have undefined names to use.
   (lf-define id (x) "Identity" x)
-  (⇝ (documentation 'id) (* anything) "Identity" (* anything))
+  (⇝ (documentation #'id) "Identity")
 
   ;; We also cannot have empty functions that take arguments...
   ;; (lf-undefine f)
@@ -280,16 +279,16 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
   (lf-undefine f)
   (lf-define f () "Woah!" (and nil)) ;; This is an /indirect/ definition of an empty function
   (≋ (f) nil)
-  (⇝ (documentation 'f ) (* anything) "Woah!" (* anything))
+  (⇝ (documentation #'f) "Woah!")
 
   (lf-undefine f)
   (lf-define f (x y) "Woah!" (and nil)) ;; This is an /indirect/ definition of an empty function, with args.
   (≋ (f 1 2) nil)
-  (⇝ (documentation 'f ) (* anything) "Woah!" (* anything))
-)
+  (⇝ (documentation #'f ) "Woah!"))
 
-(ert-deftest lf/define/types/functions ()
-  :tags '(define)
+(deftest "It can define typed functions"
+  [lf-define]
+
   (lf-undefine speak) ;; Ensure we have undefined names to use.
 
   (lf-define speak (name age)
@@ -299,7 +298,7 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
              (format "Hello %s year-old %s!" age name))
 
   ;; Docstring is present
-  (⇝ (documentation-property 'speak 'function-documentation)
+  (⇝ (documentation #'speak)
      "This function has :around advice: ‘lf--typing-advice/speak’.
 
       Greet person NAME with their AGE.
@@ -327,62 +326,54 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
              [:requires (and (stringp name) (integerp age))
               :ensures (stringp result)]
              12)
-  ;;
+  ;; Any use yields an error:
   (↯ (speak "musa" 29)
      "Panic! There is an error in the implementation of “speak”.
      Claimed guarantee: (stringp result)
      Actual result value: 12 ---typed: integer"))
 
-(ert-deftest lf/define/function/expansion ()
-  (lf-undefine add)
 
-  (lf-define add (x) (+ 1 x))
-  (≋ (add 4) 5)
 
-  ;; Expansion is a cl-defun along with some typing advice added.
+;; Function definition expansions
+
+(deftest "It expands function definitions to cl-defun's, with typing advice"
+  [lf-define]
   (⇝ (pp-to-string (macroexpand '(lf-define add (x) (+ 1 x))))
+     "(cl-defun add (x)
+        nil
+        (+ 1 x))"
      (* anything)
-     "(cl-defun add
-      (x)
-    nil
-    (+ 1 x))"
-   (* anything)
-   "(advice-add #'add :around 'lf--typing-advice/add)"))
+     "(advice-add #'add :around 'lf--typing-advice/add)"))
 
-(ert-deftest lf/define/function/docs/expansion ()
-  (lf-undefine add)
-
-  ;; Expansion is a cl-defun along with some typing advice added.
+(deftest "It expands documented function definitions correctly, with typing advice"
+  [lf-define]
   (⇝ (pp-to-string (macroexpand '(lf-define add (x) "Hola" (+ 1 x))))
+     "(cl-defun add (x)
+      \"Hola\"
+      (+ 1 x))"
      (* anything)
-     "(cl-defun add
-      (x)
-    \"Hola\"
-    (+ 1 x))"
-   (* anything)
-   "(advice-add #'add :around 'lf--typing-advice/add)"))
+     "(advice-add #'add :around 'lf--typing-advice/add)"))
 
-(ert-deftest lf/define/function/docs-and-types/expansion ()
-  (lf-undefine add)
-
-  ;; Expansion is a cl-defun along with some typing advice added.
+(deftest "It expands typed, and documented, function definitions into cl-defun's, with typing advice"
+  [lf-define]
   (⇝ (pp-to-string (macroexpand '(lf-define add (x) [:requires (integerp x)] "My docs" (+ 1 x))))
+     "(cl-defun add (x)
+        \"My docs\"
+        (+ 1 x))"
      (* anything)
-     "(cl-defun add
-      (x)
-    \"My docs\"
-    (+ 1 x))"
-   (* anything)
-   "(advice-add #'add :around 'lf--typing-advice/add)"))
+     "(advice-add #'add :around 'lf--typing-advice/add)"))
 
-(ert-deftest lf/define/ensures/failure ()
+
+
+;; When does a function panic/error out?
+
+(deftest "Poorly implemented functions panic when used"
+  [lf-define]
   (lf-undefine speak)
-
   (lf-define speak (name age)
            [ :ensures (vectorp result) ]
           "Given a NAME and AGE, present a nice greeting."
            (format "Hello, %s!" name))
-
   (↯ (speak "mesa" 12)
      "Panic! There is an error in the implementation of “speak”.
 
@@ -390,26 +381,51 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
 
       Actual result value: \"Hello, mesa!\" ---typed: string"))
 
-
-(ert-deftest lf/define/ensures/success ()
+(deftest "Coorectly implemented functions do not panic when used with well-typed arguments"
+  [lf-define]
   (lf-undefine speak)
-
   (lf-define speak (name age)
            [:requires (and (stringp name) (integerp age))
             :ensures (stringp result) ]
            "Given a NAME and AGE, present a nice greeting."
            (format "Hello, %s!" name))
 
-  (should (speak "mesa" 12))
+  (✓ (speak "mesa" 12))
+  (↯ (speak 'whoops 12)
+     "Error: Requirements for “speak” have been violated.
 
-  (should-error (speak 'whoops 12)))
-    ;; "Error: Requirements for “speak” have been violated.
+      REQUIRED:
+      (and
+       (stringp name)
+       (integerp age))
 
-    ;; REQUIRED:
-    ;; (and
-    ;;  (stringp name)
-    ;;  (integerp age))
+      GIVEN:
+      ((name = whoops : symbol)
+       (age = 12 : integer))     "))
 
-    ;; GIVEN:
-    ;; ((name has value whoops which is typed: symbol)
-    ;;  (age has value 12 which is typed: integer))"
+
+
+
+;; 🔥 Post assertions can be relative to input and output arguments
+
+(deftest "Post assertions can be relative to input and output arguments"
+  [lf-define]
+  (lf-undefine next)
+  (lf-define next (x)
+             "This function resturns a value strictly greater than input X."
+             [:requires (integerp x)
+              :ensures  (< x result)]
+             (1+ x))
+  (≋ (next 2) 3))
+
+
+
+
+;; :fire: It lets you use pre- and post-conditions with custom error messages, by using or-error
+
+(deftest "It lets you use pre- and post-conditions with custom error messages, by using or-error"
+  [lf-define]
+  (lf-undefine go)
+  (lf-define go (x) [:requires (or (integerp x) (error "I asked you for a bloody integer!"))] x)
+  (✓ (go 3))
+  (↯ (go "3") "I asked you for a bloody integer!"))

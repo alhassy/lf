@@ -26,11 +26,11 @@
 
 ;; This library provides common desirable “L”anguage “F”eatures:
 ;;
-;; 0. A unifed interface for defining both variables and functions.  LF-DEFINE.
+;; 0. A unifed interface for defining both variables and functions. LF-DEFINE.
 ;;
-;; 1. A way to define typed, constrained, variables.  LF-DEFINE.
+;; 1. A way to define typed, constrained, variables. LF-DEFINE.
 ;;
-;; 2. A way to define type specifed functions.  LF-DEFINE.
+;; 2. A way to define type specifed functions. LF-DEFINE.
 ;;
 ;; 3. A macro to ease variable updates:  (lf-define very-long-name (f it))
 ;;                                     ≋ (setq very-long-name (f very-long-name))
@@ -243,22 +243,22 @@ It defines PLACE to be NEWVALUE, which satisfies CONSTRAINTS, as follows:
 
     (setq constraints (seq--into-list constraints))
     (cl-assert (or (listp constraints) (null constraints)))
-    (cl-assert (or (stringp docstring)   (null docstring)))
+    (cl-assert (or (stringp docstring) (null docstring)))
     (cl-assert (listp more))
 
     (cond
      ;; (lf-define variable value [constraints] [documentation])
      ((and (atom place) (or (not more) (equal '(nil) more)))
-      (lf--define-variable place newvalue constraints docstring))
+      (lf-define-variable place newvalue constraints docstring))
 
      ;; (lf-define f (x) body)
      ((and (listp newvalue) more)
-      (lf--define-function place newvalue constraints docstring more))
+      (lf-define-function place newvalue constraints docstring more))
 
      ;; All else
      (t `(setf ,place  (let ((it ,place)) ,newvalue))))))
 
-(defun lf--define-variable (name value constraints docstring)
+(defun lf-define-variable (name value constraints docstring)
   "Set variable NAME with VALUE satisfying CONSTRAINTS, with DOCSTRING.
 
 The return value is (a piece of code that returns) the new value.
@@ -281,16 +281,16 @@ See: (get name :lf-constraints-func)"
     (message "“%s” has new constraints registered: %s" name constraints)
 
     ;; Type specifier or not?
-    (if (equal :type (elt constraints 0))
+    (if (equal :type (car constraints))
       (setq constraints `(cl-typep it (quote (and ,@(cdr constraints)))))
       (setq constraints (cons 'and constraints)))
 
     ;; Only continue if the value satisfies the constraints.  if initial
     ;; value does not satify constrains, leave name unbound.
     (unless (eval (cl-subst value 'it `,constraints))
-      (ignore-errors (makunbound name))
+      (eval `(lf-undefine ,name))
       (error (concat "Error: Initial value “%s” violates declared constraint:"
-                     "\n\t%s\n\nAs such, symbol “%s” is now unbound.")
+                     "\n\t%s\n\nAs such, symbol “%s” is now unbound and unconstrained.")
                  value constraints name))
 
     ;; ADD-VARIABLE-WATCHER is idempotent; so no need to use REMOVE-VARIABLE-WATCHER.
@@ -301,9 +301,9 @@ See: (get name :lf-constraints-func)"
                (and (equal let-or-set 'set)
                     (not ,constraints)
                     (error (concat "Error: Constraints for “%s” "
-                                   "have been violated.\nValue "
-                                   "“%s” does not satisfy: %s")
-                           it.symbol it (quote ,constraints))))))
+                                   "have been violated.\nNewvalue "
+                                   "“%s” (%s) does not satisfy: %s\n\nAs such, “%s” retains its old value “%s”.")
+                           it.symbol it (type-of it) (quote ,constraints) it.symbol it.old)))))
     (add-variable-watcher name (get name :lf-constraints-func)))
 
   `(progn
@@ -311,7 +311,7 @@ See: (get name :lf-constraints-func)"
            (or ,docstring (documentation-property (quote ,name) 'variable-documentation)))
      (setf ,name ,(cl-subst name 'it value))))
 
-(defun lf--define-function (name args constraints docstring body)
+(defun lf-define-function (name args constraints docstring body)
   "Define function NAME with type specification CONSTRAINTS.
 
 The return value is (a piece of code that returns) the name of
