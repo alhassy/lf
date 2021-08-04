@@ -87,6 +87,53 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
   `(should (s-matches? (s-collapse-whitespace (rx ,(cons 'seq regexp)))
                        (s-collapse-whitespace ,expr))))
 
+(deftest "It works as expected, for multi-line strings"
+  [lf-string]
+  (≋ (lf-string    "0. This is the first line, it has zero indentation.
+                     1. This line indicates the indentation offset for the remaining lines.
+                     2. As such, this line has no indentation.
+                        3. But this one is clearly indentated (relative to line 1)")
+
+"0. This is the first line, it has zero indentation.
+1. This line indicates the indentation offset for the remaining lines.
+2. As such, this line has no indentation.
+   3. But this one is clearly indentated (relative to line 1)"))
+
+(deftest "It works as expected, for single-line strings"
+  [lf-string]
+  (≋ (lf-string "Hello my friends") "Hello my friends"))
+
+(deftest "It allows interpolation, on a single line"
+  [lf-string]
+  (≋
+   (let ((you 'Jasim))
+     (lf-string "me and ${you} like the number ${(+ 2 3)}"))
+   "me and Jasim like the number 5"))
+
+(deftest "It allows interpolation, spread over multiple"
+  [lf-string]
+  (≋
+   (lf-string "Did you know that
+               ${(documentation
+
+                    'apply)}
+               is super cool!")
+
+"Did you know that
+Call FUNCTION with our remaining args, using our last arg as list of args.
+Then return the value FUNCTION returns.
+Thus, (apply '+ 1 2 '(3 4)) returns 10.
+
+(fn FUNCTION &rest ARGUMENTS)
+is super cool!"))
+
+(deftest "It allows interpolation, involving string literals"
+  [lf-string]
+  (≋
+   (let ((you 'Jasim))
+     (lf-string "${(concat \"m\" \"e\")} and ${you}"))
+     "me and Jasim"))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; lf-extract-optionals-from-rest ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -206,7 +253,7 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
   ;; satisfy the new constraints.
   (↯ (lf-define age "12" [(and (integerp it) (stringp it))])
       "Error: Initial value “12” violates declared constraint:
-        (and (and (integerp it) (stringp it)))
+        [(and (integerp it) (stringp it))]
 
        As such, symbol “age” is now unbound and unconstrained.")
 
@@ -299,7 +346,7 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
 
   ;; Docstring is present
   (⇝ (documentation #'speak)
-     "This function has :around advice: ‘lf--typing-advice/speak’.
+     "This function has :around advice: ‘lf--specify/speak’.
 
       Greet person NAME with their AGE.
 
@@ -341,27 +388,27 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
   (⇝ (pp-to-string (macroexpand '(lf-define add (x) (+ 1 x))))
      "(cl-defun add (x)
         nil
-        (+ 1 x))"
-     (* anything)
-     "(advice-add #'add :around 'lf--typing-advice/add)"))
+        (+ 1 x))
+
+      (lf-specify add (x) :requires t :ensures t)"))
 
 (deftest "It expands documented function definitions correctly, with typing advice"
   [lf-define]
   (⇝ (pp-to-string (macroexpand '(lf-define add (x) "Hola" (+ 1 x))))
-     "(cl-defun add (x)
-      \"Hola\"
-      (+ 1 x))"
-     (* anything)
-     "(advice-add #'add :around 'lf--typing-advice/add)"))
+     " (cl-defun add (x)
+         \"Hola\"
+         (+ 1 x))
+
+      (lf-specify add (x) :requires t :ensures t)"))
 
 (deftest "It expands typed, and documented, function definitions into cl-defun's, with typing advice"
   [lf-define]
   (⇝ (pp-to-string (macroexpand '(lf-define add (x) [:requires (integerp x)] "My docs" (+ 1 x))))
      "(cl-defun add (x)
         \"My docs\"
-        (+ 1 x))"
-     (* anything)
-     "(advice-add #'add :around 'lf--typing-advice/add)"))
+        (+ 1 x))
+
+      (lf-specify add (x) :requires (integerp x) :ensures t)"))
 
 
 
