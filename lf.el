@@ -154,48 +154,59 @@ Useful for testing."
              (fmakunbound sym)))
          (quote ,symbols)))
 
-(defun lf-extract-optionals-from-rest (vec str rest)
+(defun lf-extract-optionals-from-rest (X thing1-p Y thing2-p rest)
   "Provide a way to support &optional and &rest arguments of a particular shape.
 
 For example, in `defun' one may provide an optional docstring;
 likewise in `lf-define' one may provide a docstring but no vector
-of constraints, or any other such mixture.  This metod ensures the
-right variable refers to the right thing.
+of constraints, or any other such mixture.  This method ensures the
+right variable refers to the right thing. Example usage:
 
-Return a list of length 3: The first being a vector or nil, the
-second being a string or nil, and the last being a list.
+(defmacro lf-define (place value &optional constraints docstring &rest body)
+  (cl-destructuring-bind (constraints docstring body)
+      (lf-extract-optionals-from-rest constraints #'vectorp
+                                      docstring   #'stringp
+                                      body)
+       ...))
 
-VEC and STR are the values of &optional arguments that
-are intended to be a vector and a string argument, respectively.
-REST is the value of a &rest argument; i.e., a list."
+This method return a list of length 3: The first satisfying THING1-P or nil,
+the second satisfying THING2-P or nil, and the last being a list.
+The method concludes with `cl-assert`ions of these facts.
+
+X and Y are the values of &optional arguments that
+are intended to satisfy predicates THING1-P and THING2-P, respectively.
+REST is the value of a &rest argument; i.e., a list.
+
+The predicates THING1-P and THING2-P should be disjoint."
 
   (cl-assert (listp rest))
+  (cl-assert (functionp thing1-p))
+  (cl-assert (functionp thing2-p))
 
-  ; (when (equal '(nil) rest) (setq rest nil))
-  (let ((result
-  (cond
-   ((and (not vec) (not str) (not rest)) (list nil nil nil))
+  (let ((result (cond
+                 ;; Scenario: We have nothing
+                 ((and (not X) (not Y) (not rest)) (list nil nil nil))
 
-   ;; Scenario: We have something as the first argument,
-   ;; but it's not a vector nor a string: It's the start of the rest.
-   ((and (not (vectorp vec)) (not (stringp vec)))
-    (cond (str       (list nil nil (cons vec (cons str rest))))
-          ((not str) (list nil nil (cons vec rest)))))
+                 ;; Scenario: We have something as the first argument,
+                 ;; but it's not a thing1-p nor a thing2-p: It's the start of the rest.
+                 ((and (not (funcall thing1-p X)) (not (funcall thing2-p X)))
+                  (cond (Y       (list nil nil (cons X (cons Y rest))))
+                        ((not Y) (list nil nil (cons X rest)))))
 
-   ;; Scenario: We have not a vector, but a string as first argument.
-   ((stringp vec) (cond (str (list nil vec (cons str rest)))
-                        (:else (list nil vec rest))))
+                 ;; Scenario: We have not a thing1-p, but a thing2-p as first argument.
+                 ((funcall thing2-p X) (cond (Y (list nil X (cons Y rest)))
+                                     (:else (list nil X rest))))
 
-   ;; Scenario: We have a vector as the first argument...
-   ((vectorp vec) (cond
-                   ;; The second argument is a string...
-                   ((stringp str) (list vec str rest))
-                   ;; … followed by a non-string; i.e., the start of the rest
-                   (:else (list vec nil (cons str rest))))))))
+                 ;; Scenario: We have a thing1-p as the first argument...
+                 ((funcall thing1-p X) (cond
+                                ;; (1) The second argument is a thing2-p...
+                                ((funcall thing2-p Y) (list X Y rest))
+                                ;; or (2) it's followed by a non-thing2-p; i.e., the start of the rest
+                                (:else (list X nil (cons Y rest))))))))
 
-    ;; Assertions: result ≈ (vector? string? list)
-    (cl-assert (or (vectorp (cl-first result)) (null (cl-first result))))
-    (cl-assert (or (stringp (cl-second result)) (null (cl-second result))))
+    ;; Assertions: result ≈ (funcall thing1? thing2? list)
+    (cl-assert (or (funcall thing1-p (cl-first result)) (null (cl-first result))))
+    (cl-assert (or (funcall thing2-p (cl-second result)) (null (cl-second result))))
     (cl-assert (listp (cl-third result)))
 
     ;; Result value
@@ -340,7 +351,7 @@ It defines PLACE to be NEWVALUE, which satisfies CONSTRAINTS, as follows:
     (cl-assert (equal foods '(pineapple banana)))"
 
   (cl-destructuring-bind (constraints docstring more)
-      (lf-extract-optionals-from-rest constraints docstring more)
+      (lf-extract-optionals-from-rest constraints #'vectorp docstring #'stringp more)
 
     (setq constraints (seq--into-list constraints))
     (cl-assert (or (listp constraints) (null constraints)))

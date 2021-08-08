@@ -139,29 +139,56 @@ is super cool!"))
 
 (defmacro ⇒ (x y z  _  a b c)
     "Shorthand: (⇒ inputs :become outputs)"
-  `(≋ (lf-extract-optionals-from-rest ,x ,y ,z) (quote (,a ,b ,c))))
+  `(≋ (lf-extract-optionals-from-rest ,x #'vectorp ,y #'stringp ,z) (quote (,a ,b ,c))))
 
-(deftest "What if we don't have a vector first? Then we're starting the rest!"
+(deftest "[vector-then-string]What if we don't have a vector first? Then we're starting the rest!"
   [lf-extract-optionals-from-rest]
   (⇒ nil nil nil :becomes nil nil nil)
   (⇒ 'x nil nil :becomes nil nil (x))
   (⇒ 'x 'y nil :becomes nil nil (x y))
   (⇒ 'x 'y '(z) :becomes nil nil (x y z)))
 
-(deftest "What if we don't have a vector first, but have a string instead!"
+(deftest "[vector-then-string]What if we don't have a vector first, but have a string instead!"
   [lf-extract-optionals-from-rest]
   (⇒ "x" 'y '(z) :becomes nil "x" (y z))
   (⇒ "x" 'y nil  :becomes nil "x" (y))
   (⇒ "x" nil '(z) :becomes nil "x" (z))
   (⇒ "x" nil nil  :becomes nil "x" nil))
 
-(deftest "What if we do have a vector first?"
+(deftest "[vector-then-string]What if we do have a vector first?"
   [lf-extract-optionals-from-rest]
   ;; … followed by a string
   (⇒ [] "" '(z) :becomes [] "" (z))
   (⇒ [] "" nil :becomes [] "" nil)
   ;; … followed by a non-string; i.e., the start of the rest
   (⇒ [] 'y '(z) :becomes [] nil (y z)))
+
+
+(defmacro ⇒₂ (x y z  _  a b c)
+    "Shorthand: (⇒ inputs :become outputs)"
+  `(≋ (lf-extract-optionals-from-rest ,x #'stringp ,y #'numberp ,z) (quote (,a ,b ,c))))
+
+(deftest "[string-then-number]What if we don't have a number first? Then we're starting the rest!"
+  [lf-extract-optionals-from-rest]
+  (⇒₂ nil nil nil :becomes nil nil nil)
+  (⇒₂ 'x nil nil :becomes nil nil (x))
+  (⇒₂ 'x 'y nil :becomes nil nil (x y))
+  (⇒₂ 'x 'y '(z) :becomes nil nil (x y z)))
+
+(deftest "[string-then-number]What if we don't have a string first, but have a number instead!"
+  [lf-extract-optionals-from-rest]
+  (⇒₂ 34 'y '(z) :becomes nil  34 (y z))
+  (⇒₂ 34 'y nil  :becomes nil  34 (y))
+  (⇒₂ 34 nil '(z) :becomes nil 34 (z))
+  (⇒₂ 34 nil nil  :becomes nil 34 nil))
+
+(deftest "[string-then-number]What if we do have a string first?"
+  [lf-extract-optionals-from-rest]
+  ;; … followed by a string
+  (⇒₂ "" 0 '(z) :becomes "" 0 (z))
+  (⇒₂ "" 0 nil :becomes  "" 0 nil)
+  ;; … followed by a non-number; i.e., the start of the rest
+  (⇒₂ "" 'y '(z) :becomes "" nil (y z)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; lf-define ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
