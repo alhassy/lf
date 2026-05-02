@@ -34,7 +34,7 @@ Example ERT call: (ert '(tag my-cool-tag))"
                    (format "%s::" (seq-elt tags 0))
                    (seq-map (lambda (c) (if (<= 65 c 122) c ?_))
                                    desc))) ()
-     :tags (quote ,(seq--into-list tags))
+     :tags (quote ,(append tags nil))
      ,@body))
   ;; Convert all non-letters to ‘_’; A = 65, z = 122.
   ;; Without the replace, “M-x ert” crashes when it comes to selecting the test
@@ -112,20 +112,17 @@ a given matching pattern. Such arrows are popular in Term Rewriting Systems."
 
 (deftest "It allows interpolation, spread over multiple"
   [lf-string]
-  (≋
+  (⇝
    (lf-string "Did you know that
                ${(documentation
 
                     'apply)}
                is super cool!")
-
-"Did you know that
-Call FUNCTION with our remaining args, using our last arg as list of args.
-Then return the value FUNCTION returns.
-Thus, (apply '+ 1 2 '(3 4)) returns 10.
-
-(fn FUNCTION &rest ARGUMENTS)
-is super cool!"))
+   "Did you know that"
+   (* anychar)
+   "Call FUNCTION with our remaining args"
+   (* anychar)
+   "is super cool!"))
 
 (deftest "It allows interpolation, involving string literals"
   [lf-string]
@@ -371,13 +368,11 @@ is super cool!"))
              "Greet person NAME with their AGE."
              (format "Hello %s year-old %s!" age name))
 
-  ;; Docstring is present
-  (⇝ (documentation #'speak)
-     "This function has :around advice: ‘lf--specify/speak’.
-
-      Greet person NAME with their AGE.
-
-      (fn NAME AGE)")
+  ;; Docstring is present (advice notice and user docstring may appear in either order)
+  (let ((doc (documentation (function speak))))
+    (✓ (s-matches? "Greet person NAME with their AGE\\." doc))
+    (✓ (s-matches? "lf--specify/speak" doc))
+    (✓ (s-matches? "(fn NAME AGE)" doc)))
 
   ;; Type-satisfied inputs yield an output
   (≋ (speak "musa" 29) "Hello 29 year-old musa!")
