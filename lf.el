@@ -122,6 +122,43 @@ Finally, ${expressions} may contain escaped literal string expressions."
              do (setq result (replace-regexp-in-string (regexp-quote literal) (format "%s" value) result))
              finally return result)))
 
+(defun lf-unindent (str)
+  "Strip common leading whitespace from every line of STR.
+
+The indent level is the minimum leading whitespace among non-blank
+lines after the first (line 1 abuts the opening quote, so its
+indent is not representative).
+
+By way of example:
+
+   (lf-unindent
+      \"1. This is the first line, it has zero indentation.
+       2. This line indicates the indentation offset for the remaining lines.
+       3. As such, this line has no indentation.
+          4. But this one is clearly indented (relative to line 2)\")
+
+Returns the string:
+
+   1. This is the first line, it has zero indentation.
+   2. This line indicates the indentation offset for the remaining lines.
+   3. As such, this line has no indentation.
+      4. But this one is clearly indented (relative to line 2)
+
+Notice that the initial indentation (as determined by line 2) has been
+stripped uniformly across all lines."
+  (let* ((lines (s-lines str))
+         (rest-non-blank (--filter (not (s-blank-p it)) (cdr lines)))
+         (min-indent
+          (if rest-non-blank
+              (apply #'min (--map (length (car (s-match "^ *" it)))
+                                  rest-non-blank))
+            0)))
+    (s-join "\n" (cons (car lines)
+                       (--map (if (>= (length it) min-indent)
+                                  (substring it min-indent)
+                                it)
+                              (cdr lines))))))
+
 (cl-defun lf-documentation (name &optional kind newdoc)
   "Essentially, `lf-documentation' ≈ `documentation' + `documentation-property'.
 
@@ -349,7 +386,7 @@ It defines PLACE to be NEWVALUE, which satisfies CONSTRAINTS, as follows:
     (lf-define foods '(apple banana))
     (lf-define (car foods) 'pineapple)
     (cl-assert (equal foods '(pineapple banana)))"
-
+  (declare (indent defun))
   (cl-destructuring-bind (constraints docstring more)
       (lf-extract-optionals-from-rest constraints #'vectorp docstring #'stringp more)
 
