@@ -73,6 +73,43 @@
     "A Language Features library for Emacs Lisp"
   nil nil nil)
 
+(defun lf-unindent (str)
+  "Strip common leading whitespace from every line of STR.
+
+The indent level is the minimum leading whitespace among non-blank
+lines after the first (line 1 abuts the opening quote, so its
+indent is not representative).
+
+By way of example:
+
+   (lf-unindent
+      \"1. This is the first line, it has zero indentation.
+       2. This line indicates the indentation offset for the remaining lines.
+       3. As such, this line has no indentation.
+          4. But this one is clearly indented (relative to line 2)\")
+
+Returns the string:
+
+   1. This is the first line, it has zero indentation.
+   2. This line indicates the indentation offset for the remaining lines.
+   3. As such, this line has no indentation.
+      4. But this one is clearly indented (relative to line 2)
+
+Notice that the initial indentation (as determined by line 2) has been
+stripped uniformly across all lines."
+  (let* ((lines (s-lines str))
+         (rest-non-blank (--filter (not (s-blank-p it)) (cdr lines)))
+         (min-indent
+          (if rest-non-blank
+              (apply #'min (--map (length (car (s-match "^ *" it)))
+                                  rest-non-blank))
+            0)))
+    (s-join "\n" (cons (car lines)
+                       (--map (if (>= (length it) min-indent)
+                                  (substring it min-indent)
+                                it)
+                              (cdr lines))))))
+
 (defun lf-string (str)
 "Allows unindented muliline strings and intepolates ${(lisp expressions)}.
 
@@ -114,50 +151,12 @@ Returns the string:
    me and Jasim like the number 5
 
 Finally, ${expressions} may contain escaped literal string expressions."
-  (let* ((indentation (or (ignore-errors (length (car (s-match "\\( \\)+" (cadr (s-split "\n" str)))))) 0))
-         (unindented-str (replace-regexp-in-string (format "^ \\{%s\\}" indentation) "" str)))
-    (cl-loop for (literal string-expr) in (s-match-strings-all"${\\([^}]+\\)}" unindented-str)
+  (let* ((unindented-str (lf-unindent str)))
+    (cl-loop for (literal string-expr) in (s-match-strings-all "${\\([^}]+\\)}" unindented-str)
              for value = (eval (read string-expr))
              with result = unindented-str
              do (setq result (replace-regexp-in-string (regexp-quote literal) (format "%s" value) result))
              finally return result)))
-
-(defun lf-unindent (str)
-  "Strip common leading whitespace from every line of STR.
-
-The indent level is the minimum leading whitespace among non-blank
-lines after the first (line 1 abuts the opening quote, so its
-indent is not representative).
-
-By way of example:
-
-   (lf-unindent
-      \"1. This is the first line, it has zero indentation.
-       2. This line indicates the indentation offset for the remaining lines.
-       3. As such, this line has no indentation.
-          4. But this one is clearly indented (relative to line 2)\")
-
-Returns the string:
-
-   1. This is the first line, it has zero indentation.
-   2. This line indicates the indentation offset for the remaining lines.
-   3. As such, this line has no indentation.
-      4. But this one is clearly indented (relative to line 2)
-
-Notice that the initial indentation (as determined by line 2) has been
-stripped uniformly across all lines."
-  (let* ((lines (s-lines str))
-         (rest-non-blank (--filter (not (s-blank-p it)) (cdr lines)))
-         (min-indent
-          (if rest-non-blank
-              (apply #'min (--map (length (car (s-match "^ *" it)))
-                                  rest-non-blank))
-            0)))
-    (s-join "\n" (cons (car lines)
-                       (--map (if (>= (length it) min-indent)
-                                  (substring it min-indent)
-                                it)
-                              (cdr lines))))))
 
 (cl-defun lf-documentation (name &optional kind newdoc)
   "Essentially, `lf-documentation' ≈ `documentation' + `documentation-property'.
