@@ -46,7 +46,7 @@
 
 (deftest-declaring-types "lf-declare-type signals a clear error at declaration time when -> is missing"
   (should (equal (lf-test--signalled (lf-declare-type nth-wrapper :: integer list))
-                 "lf-declare-type: missing ‘->‘ in type spec (integer list)")))
+                 "lf-declare-type: missing ‘->’ in type spec (integer list)")))
 
 (deftest-declaring-types "lf-declare-type signals a clear error at declaration time for an unknown type name"
   (should (equal (lf-test--signalled (lf-declare-type nth-wrapper :: frobnicatable list -> alpha))

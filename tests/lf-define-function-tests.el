@@ -54,8 +54,7 @@ GIVEN:
 
 Claimed guarantee: (stringp result)
 
-Actual result value: 12
- ---typed: integer")
+Actual result value: 12 ---typed: integer")
 
 (define-lf-error-test "lf-define's functions panic when poorly implemented, showing the guarantee and actual result"
   :call (progn (lf-define speak (name age)
@@ -67,8 +66,7 @@ Actual result value: 12
 
 Claimed guarantee: (vectorp result)
 
-Actual result value: \"Hello, mesa!\"
- ---typed: string")
+Actual result value: \"Hello, mesa!\" ---typed: string")
 
 (define-lf-call-test "lf-define's post-conditions may relate the result to the inputs"
   :call (progn (lf-define next (x)
@@ -83,6 +81,11 @@ Actual result value: \"Hello, mesa!\"
   :call (progn (lf-define go (x) [:requires (or (integerp x) (error "I asked you for a bloody integer!"))] x)
                (go "3"))
   :signals "I asked you for a bloody integer!")
+
+(deftest "lf-define's panic message shows the actual result and its type on one line"
+  (lf-define speak (name) [:ensures (stringp result)] (ignore name) 12)
+  (should (string-match-p "\n\nActual result value: 12 ---typed: integer"
+                          (lf-test--signalled (speak "musa")))))
 
 ;;; Expansions
 

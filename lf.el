@@ -3,7 +3,7 @@
 ;; Copyright (c) 2021 Musa Al-hassy
 
 ;; Author: Musa Al-hassy <alhassy@gmail.com>
-;; Version: 26.10.2
+;; Version: 26.10.3
 ;; Package-Requires: ((s "1.12.0") (dash "2.16.0") (emacs "27.1"))
 ;; Keywords: convenience, programming
 ;; Repo: https://github.com/alhassy/lf.el
@@ -556,10 +556,11 @@ Lisp nesting exceeds ‘max-lisp-eval-depth’ errors."
                (error "%s"
                       (concat
                        (format (concat "Panic! There is an error in the implementation of “%s”."
-                                       "\n\nClaimed guarantee: %s\nActual result value: %s ---typed: %s")
+                                       "\n\nClaimed guarantee: %s\n\nActual result value: %s ---typed: %s")
                                (quote ,name)
-                               (pp-to-string (quote ,ensures))
-                               (pp-to-string result)
+                               ;; `pp-to-string' ends with a newline; we place line breaks ourselves.
+                               (s-trim-right (pp-to-string (quote ,ensures)))
+                               (s-trim-right (pp-to-string result))
                                (type-of result))
                        (lf--backtrace-trailer (quote ,advice-name)))))
 
@@ -743,7 +744,7 @@ Returns one predicate (or nil) per input type, in order."
   (let* ((spec (if (eq ':: (car spec)) (cdr spec) spec))
          (arrow-pos (cl-position '-> spec)))
     (unless arrow-pos
-      (error "lf-declare-type: missing `->` in type spec %s" spec))
+      (error "lf-declare-type: missing `->' in type spec %s" spec))
     (mapcar #'lf--type->predicate (cl-subseq spec 0 arrow-pos))))
 
 (defun lf--make-type-checking-expander (name predicates)
