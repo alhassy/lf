@@ -3,7 +3,7 @@
 ;; Copyright (c) 2021 Musa Al-hassy
 
 ;; Author: Musa Al-hassy <alhassy@gmail.com>
-;; Version: 1.0
+;; Version: 26.10.1
 ;; Package-Requires: ((s "1.12.0") (dash "2.16.0") (emacs "27.1"))
 ;; Keywords: convenience, programming
 ;; Repo: https://github.com/alhassy/lf.el

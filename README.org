@@ -12,15 +12,21 @@
 
 * Summary
 
-| "L"anguage "F"eature                               | Implementation                  |
-|----------------------------------------------------+---------------------------------|
-| Singular interface for variable & function defs    | ~lf-define~                     |
-| Interface for /typed/ variables & functions        | ~lf-define~                     |
-| Singular interface for unbinding names             | ~lf-undefine~                   |
-| Documentation retrieval & assignment               | ~lf-documentation~              |
-| Helper for ~&optional~ and ~&rest~ arguments       | ~lf-extract-optionals-from-rest~ |
-| Call-site type checking for existing functions     | ~lf-declare-type~               |
-| Pre/post-condition contracts for existing functions | ~lf-specify~                   |
+| "L"anguage "F"eature                                | Implementation                   |
+|------------------------------------------------------+-----------------------------------|
+| Singular interface for variable & function defs      | ~lf-define~                      |
+| Interface for /typed/ variables & functions          | ~lf-define~                      |
+| Singular interface for unbinding names               | ~lf-undefine~                    |
+| Documentation retrieval & assignment                 | ~lf-documentation~               |
+| Helper for ~&optional~ and ~&rest~ arguments         | ~lf-extract-optionals-from-rest~ |
+| Call-site type checking for existing functions       | ~lf-declare-type~                |
+| Pre/post-condition contracts for existing functions  | ~lf-specify~                     |
+| "Is this a map with (at least) these keys/types?"    | ~lf-where~ / ~lf-where*~          |
+| Shape checks with rich, self-explaining failures     | ~lf-where-explain~               |
+| Ad-hoc "show me these values" debugging prints       | ~lf-dump~                        |
+| One-shot breakpoints with the values already visible | ~lf-dump*~                       |
+| Multi-expression assertions with full-context errors | ~lf-assert~                      |
+| Every error above names its own caller chain         | (automatic, see ~lf-specify~)    |
 
 * Example: ~lf-define~ with contracts
 
@@ -128,6 +134,234 @@ function.  The idiom is to wrap it first:
 The combination ---~lf-declare-type~ for structural type errors,
 ~lf-specify~ for value-level invariants--- gives us two complementary
 layers of call-site defence.
+
+Every error message above also names its own /caller chain/ ---not
+just which function's contract failed, but what called it, and what
+called /that/. A three-layer call ~outer~ → ~middle~ → ~inner~, with
+~inner~'s ~:requires~ violated by a bad call from ~outer~, reports:
+
+#+begin_src emacs-lisp
+;; => Error: Requirements for "inner" have been violated.
+;;
+;;    REQUIRED: (integerp x)
+;;    GIVEN: ((x = "not-an-int" : string))
+;;
+;;    CALLED FROM: inner -> middle -> outer -> ...
+#+end_src
+
+No configuration needed ---this is automatic for every ~lf-specify~/
+~lf-define~ contract and every ~lf-assert~ call.
+
+* Real-world applications
+
+The examples above are deliberately small. Here is ~lf.el~ doing real
+work: checking the *shape* of data flowing through actual code (the
+kind of untyped JSON alist a Gerrit/Jira REST call hands back), and
+replacing ad-hoc ~message~ calls scattered through debugging sessions
+with something that survives past the session.
+
+** Shape-typed data: ~lf-where~, ~lf-where*~, ~lf-where-explain~
+
+Real code constantly receives untyped alists/plists from JSON, REST
+APIs, or other dynamically-typed sources ---and constantly checks them
+with a bare ~(listp x)~, which passes for /any/ list, catching nothing.
+~lf-where~ names the actual shape: "a map with at least these keys, of
+these types" ---inspired by Ramda's ~R.where~ (~{String: (* -> Boolean)}
+-> {String: *} -> Boolean~) ---and drops straight into an ~lf-define~'s
+~:requires~ clause:
+
+#+begin_src emacs-lisp
+;; A Gerrit change, pulled straight off the wire as JSON, is just an
+;; alist --- but not JUST any alist: it has a `number' (integer), a
+;; `subject' (string), and a `commitMessage' that may be nil.
+(defun gerrit-change-p (c)
+  (lf-where c
+            :number        #'integerp
+            :subject       #'stringp
+            :commitMessage (lambda (v) (or (null v) (stringp v)))))
+
+(lf-define change-subject (change)
+    [:requires (gerrit-change-p change)
+     :ensures  (stringp result)]
+    "Return CHANGE's subject line."
+    (or (cdr (assq 'subject change)) ""))
+
+(change-subject '((number . 1) (subject . "Fix the thing")))
+;; => "Fix the thing"
+
+(change-subject '((subject . "no number key --- malformed change")))
+;; => Error: Requirements for "change-subject" have been violated.
+#+end_src
+
+Notice ~lf-where~ works the same whether the data is a symbol-keyed
+alist (~(number . 1)~, the shape shown above), a keyword-keyed alist
+(~(:number . 1)~), a plist (~(:number 1)~), a hash-table, or a
+~cl-defstruct~ record ---the spec's own keys can be written as
+~:keyword~ or ~'symbol~ either way; ~lf-where~ inspects the data and
+normalises to match, so the same shape-check works regardless of
+which convention a given data source happens to use.
+
+For compound per-key checks, ~lf-where*~ binds the looked-up value to
+~it~ instead of requiring a ~(lambda (v) ...)~:
+
+#+begin_src emacs-lisp
+(lf-where* change
+           :lastUpdated   (or (null it) (numberp it))
+           :commitMessage (or (null it) (stringp it)))
+#+end_src
+
+And when a shape check fails, ~lf-where-explain~ says exactly which
+key and why, instead of a bare ~nil~:
+
+#+begin_src emacs-lisp
+(lf-where-explain '((number . "not-a-number")) :number #'integerp)
+;; => Error: shape requirement violated at key ":number".
+;;
+;;    EXPECTED: integerp
+;;    GIVEN: :number = "not-a-number" (string)
+#+end_src
+
+** Ad-hoc debugging: ~lf-dump~, ~lf-dump*~, ~lf-assert~
+
+The oldest debugging trick in the book is a ~(message "x = %s" x)~
+sprinkled through a function, deleted once the bug is found. ~lf-dump~
+is that trick, made slightly less ad-hoc:
+
+#+begin_src emacs-lisp
+(lf-dump 42 "a string" (+ 1 2) some-variable)
+;; *Messages*:
+;;   42
+;;   "a string"
+;;   (+ 1 2) = 3
+;;   some-variable = <its actual value>
+#+end_src
+
+Self-evaluating literals (numbers, strings, quoted forms) print bare
+---no ~"42 = 42"~ noise--- while real expressions show both the form
+/and/ its value. Every ~lf-dump~ also reports its own caller chain, for
+free, so a dump left inside a deeply-nested helper still tells you
+/where it fired from/ without adding a single extra argument.
+
+~lf-dump-if~/~lf-dump*if~ take a leading condition, so a debug print can
+live permanently in code, gated behind a flag, instead of being
+added-then-deleted every time:
+
+#+begin_src emacs-lisp
+(defvar my-debug-mode nil)
+(lf-dump-if my-debug-mode (length queue) (car queue))
+;; No-op --- QUEUE isn't even evaluated --- unless `my-debug-mode' is set.
+#+end_src
+
+~lf-dump*~ goes one step further: dump the values, /then/ drop into the
+debugger right there, so you can poke around with the values already
+printed to ~*Messages*~ in case a later step in the debugger shadows
+them:
+
+#+begin_src emacs-lisp
+(lf-dump* (length queue) (car queue))
+;; Prints the dump, then (debug) --- a one-shot breakpoint with
+;; the values already on screen, no `edebug' instrumentation needed.
+#+end_src
+
+Finally, ~lf-assert~ generalises both ~lf-dump~ and a bare ~cl-assert~ to
+/multiple/ expressions checked together, each against its own
+condition, with ~it~ bound to that expression's value:
+
+#+begin_src emacs-lisp
+(lf-assert (+ 1 2)  (cl-evenp it)
+           "Hello"  (and (stringp it) (> (length it) 3)))
+;; => Error: lf-assert failed.
+;;
+;;    ((+ 1 2) satisfies (cl-evenp it) = 3 : integer)
+;;
+;;    ("Hello" satisfies (and (stringp it) (> (length it) 3)) = "Hello" : string)
+#+end_src
+
+Every pair is shown, not just the failing one ---so a multi-expression
+assertion gives full context at a glance, the same design ~lf-specify~
+already uses for a function's ~:requires~ violations. (In fact
+~lf-dump~ /is/ ~lf-assert~ under the hood: dumping a form is exactly
+"assert ~t~ of it", always shown rather than shown-only-on-failure.)
+
+* Emacs config writing: taming =init.el=/=.emacs=
+
+Emacs configuration is exactly the kind of code ~lf.el~ was built for
+---small, personal, iterated-on constantly, and normally has zero test
+coverage or type checking, so mistakes surface as a cryptic error deep
+in some third-party package weeks after the config line that caused
+them was written. A few concrete ways ~lf.el~ helps directly in
+=init.el=:
+
+- *Catch config mistakes where you make them, not three packages
+  later.* A typo'd variable value (a string where a package expects a
+  symbol, an off-by-one in a hook priority) usually manifests as a
+  baffling error from deep inside someone else's package. Wrapping
+  config-setting helpers in ~lf-specify~ or ~lf-define~ moves that error
+  back to the actual line you got wrong:
+
+  #+begin_src emacs-lisp
+  (lf-define my/set-theme (theme-name)
+      [:requires (memq theme-name (custom-available-themes))]
+      "Load THEME-NAME, refusing anything not actually installed."
+      (load-theme theme-name t))
+
+  (my/set-theme 'doom-onedork)  ;; typo'd theme name
+  ;; => Error: Requirements for "my/set-theme" have been violated.
+  ;;    ---immediately, at the (my/set-theme ...) call site in init.el,
+  ;;    not as a cryptic face-resolution error minutes into the session.
+  #+end_src
+
+- *Validate the shape of alist-heavy config once, reuse everywhere.*
+  Org-mode, ~use-package~, and dozens of other packages configure
+  themselves via alists/plists whose shape is easy to get subtly wrong
+  (a missing key, a string where a symbol was expected) and which then
+  fail silently or with an unhelpful error the next time that code
+  path runs. ~lf-where~ lets you name the expected shape once and check
+  every entry against it, right when the list is defined ---e.g. a
+  hand-rolled list of file-pattern → major-mode associations, the kind
+  of thing many personal configs accumulate over the years:
+
+  #+begin_src emacs-lisp
+  (defvar my/extra-mode-associations
+    '((:pattern "\\.rs\\'"   :mode rust-mode)
+      (:pattern "\\.toml\\'" :mode conf-toml-mode)))
+
+  (defun mode-entry-p (entry)
+    (lf-where entry :pattern #'stringp :mode #'symbolp))
+
+  (dolist (entry my/extra-mode-associations)
+    (unless (mode-entry-p entry)
+      (lf-dump "Malformed mode association:" entry))
+    (add-to-list 'auto-mode-alist
+                 (cons (plist-get entry :pattern) (plist-get entry :mode))))
+  #+end_src
+
+- *Leave debugging breadcrumbs that survive a config reload.* Emacs
+  configs are reloaded constantly (~M-x eval-buffer~, restarting Emacs,
+  ~use-package~'s deferred loading firing at odd times) ---exactly the
+  environment where a stray ~(message ...)~ either gets lost in the
+  noise of everything else Emacs logs at startup, or gets forgotten
+  and left in permanently. ~lf-dump-if~, gated behind a single
+  ~my/debug-init~ variable you flip on only when actually
+  investigating something, keeps that instrumentation in the config
+  permanently without it ever being noisy on a normal start:
+
+  #+begin_src emacs-lisp
+  (defvar my/debug-init nil
+    "Set to t, then `M-x eval-buffer' on init.el, to see load-order diagnostics.")
+
+  (lf-dump-if my/debug-init
+    (length load-path)
+    (featurep 'org)
+    (current-time-string))
+  #+end_src
+
+- *One interface, whether you're defining a variable or a function.*
+  A typical config alternates between ~setq~ing variables and
+  ~defun~ing helper functions, each with its own documentation
+  convention (or none at all). ~lf-define~ unifies both, so
+  =init.el= reads consistently no matter which of the two you're
+  actually writing this time --- see the [[*Example: ~lf-define~ with contracts][~lf-define~ example]] above.
 
 * Installation
 
