@@ -31,18 +31,23 @@ jobs:
               (unless (package-installed-p pkg)
                 (package-install pkg))))'
 
+      - name: Fetch snap, which the tests are written with
+        run: |
+          git clone --depth 1 https://github.com/alhassy/snap ~/snap
+          git clone --depth 1 https://github.com/alhassy/fancy-C-x-C-e ~/fancy-C-x-C-e
+
       - name: Byte-compile
         run: |
           emacs --batch \
             --eval '(package-initialize)' \
             -L . \
             -f batch-byte-compile \
-            lf.el tests.el
+            lf.el
 
       - name: Run ERT tests
         run: |
           emacs --batch \
             --eval '(package-initialize)' \
-            -L . \
-            -l tests.el \
+            -L . -L ~/snap -L ~/fancy-C-x-C-e \
+            $(for f in tests/*-tests.el; do echo "-l $f"; done) \
             -f ert-run-tests-batch-and-exit

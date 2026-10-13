@@ -3,7 +3,7 @@
 ;; Copyright (c) 2021 Musa Al-hassy
 
 ;; Author: Musa Al-hassy <alhassy@gmail.com>
-;; Version: 26.10.1
+;; Version: 26.10.2
 ;; Package-Requires: ((s "1.12.0") (dash "2.16.0") (emacs "27.1"))
 ;; Keywords: convenience, programming
 ;; Repo: https://github.com/alhassy/lf.el
@@ -153,7 +153,16 @@ Returns the string:
 
    me and Jasim like the number 5
 
-Finally, ${expressions} may contain escaped literal string expressions."
+Finally, ${expressions} may contain escaped literal string expressions.
+
+Binding mode: `lf-string' is an ordinary function that `eval's each
+${expression} when it is called, in the global, dynamic, environment
+---not in its caller's.  Hence expressions see global and dynamically
+bound (special) variables, but never the caller's lexical variables.
+In particular, the `let' example above works only in code without
+`lexical-binding'; with it ---the default for new Elisp files--- the
+call signals (void-variable you), unless `you' is special; e.g., by
+an earlier (defvar you)."
   (let* ((unindented-str (lf-unindent str)))
     (cl-loop for (literal string-expr) in (s-match-strings-all "${\\([^}]+\\)}" unindented-str)
              for value = (eval (read string-expr))
@@ -704,8 +713,9 @@ Skips reprocessing when already inside a `macroexpand-all' triggered
 by ourselves (reentrancy guard), so we never recurse infinitely."
   (if lf--type-check-active
       (funcall orig-fn form lexical)
-    (let* ((lf--type-check-active t)
-           (form (macroexpand-all form lf--declared-type-env)))
+    ;; Guard only the expansion: evaluating the form may itself `eval' further forms, which must be checked too.
+    (let ((form (let ((lf--type-check-active t))
+                  (macroexpand-all form lf--declared-type-env))))
       (funcall orig-fn form lexical))))
 
 (defun lf--type-variable-p (sym)
@@ -926,40 +936,41 @@ variable do not introduce new anyonmous watchers, but instead
 redefine the one, and only, constraint LF maintains.
 See: (get name :lf-constraints-func)"
 
-  (when constraints
-    (message "“%s” has new constraints registered: %s" name `[,@constraints])
-
-    (let (contract) ;; ≈ Lisp checkable version of user's “constraints”, conjunctive.
-      ;; Type specifier or not?
-      (if (equal :type (car constraints))
-          (setq contract `(cl-typep it (quote (and ,@(cdr constraints)))))
-        (setq contract (cons 'and constraints)))
-
-    ;; Only continue if the value satisfies the constraints.  if initial
-    ;; value does not satify constrains, leave name unbound.
-    (unless (eval (cl-subst value 'it `,contract))
-      (eval `(lf-undefine ,name))
-      (error (concat "Error: Initial value “%s” violates declared constraint:"
-                     "\n\t%s\n\nAs such, symbol “%s” is now unbound and unconstrained.")
-                 value `[,@constraints] name))
-
-    ;; ADD-VARIABLE-WATCHER is idempotent; so no need to use REMOVE-VARIABLE-WATCHER.
-    (setf (get name :lf-constraints-func)
-          `(lambda (it.symbol it let-or-set _)
-             "If we are doing a SET and the CONSTRAINTS fail, then error; else do nothing."
-             (let ((it.old (and (boundp it.symbol) (symbol-value it.symbol))))
-               (and (equal let-or-set 'set)
-                    (not ,contract)
-                    (error (concat "Error: Constraints for “%s” "
-                                   "have been violated.\nNewvalue "
-                                   "“%s” (%s) does not satisfy: %s\n\nAs such, “%s” retains its old value “%s”.")
-                           it.symbol it (type-of it) [,@constraints] it.symbol it.old)))))
-    (add-variable-watcher name (get name :lf-constraints-func))))
-
-  `(progn
-     (setf (documentation-property (quote ,name) 'variable-documentation)
-           (or ,docstring (documentation-property (quote ,name) 'variable-documentation)))
-     (setf ,name ,(cl-subst name 'it value))))
+  (let* ((contract ;; ≈ Lisp checkable version of user's “constraints”, conjunctive.
+          (when constraints
+            (if (equal :type (car constraints))
+                `(cl-typep it (quote (and ,@(cdr constraints))))
+              (cons 'and constraints))))
+         (constrain ;; Registered when the definition runs ---not when it expands---
+                    ;; so that byte-compiled definitions keep their constraints.
+          (when constraints
+            `((message "“%s” has new constraints registered: %s" (quote ,name) (quote [,@constraints]))
+              ;; New constraints replace, rather than join, any old ones.
+              (when (get (quote ,name) :lf-constraints-func)
+                (remove-variable-watcher (quote ,name) (get (quote ,name) :lf-constraints-func)))
+              ;; Only continue if the value satisfies the constraints; if the initial
+              ;; value does not satisfy them, leave NAME unbound.
+              (unless (let ((it ,(cl-subst name 'it value))) ,contract)
+                (lf-undefine ,name)
+                (error (concat "Error: Initial value “%s” violates declared constraint:"
+                               "\n\t%s\n\nAs such, symbol “%s” is now unbound and unconstrained.")
+                       ,(cl-subst name 'it value) (quote [,@constraints]) (quote ,name)))
+              (setf (get (quote ,name) :lf-constraints-func)
+                    (lambda (it.symbol it let-or-set _)
+                      "If we are doing a SET and the CONSTRAINTS fail, then error; else do nothing."
+                      (let ((it.old (and (boundp it.symbol) (symbol-value it.symbol))))
+                        (and (equal let-or-set 'set)
+                             (not ,contract)
+                             (error (concat "Error: Constraints for “%s” "
+                                            "have been violated.\nNewvalue "
+                                            "“%s” (%s) does not satisfy: %s\n\nAs such, “%s” retains its old value “%s”.")
+                                    it.symbol it (type-of it) (quote [,@constraints]) it.symbol it.old)))))
+              (add-variable-watcher (quote ,name) (get (quote ,name) :lf-constraints-func))))))
+    `(progn
+       ,@constrain
+       (setf (documentation-property (quote ,name) 'variable-documentation)
+             (or ,docstring (documentation-property (quote ,name) 'variable-documentation)))
+       (setf ,name ,(cl-subst name 'it value)))))
 
 (defun lf-define-function (name args constraints docstring body)
   "Define function NAME with type specification CONSTRAINTS.

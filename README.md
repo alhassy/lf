@@ -265,7 +265,7 @@ Not yet on Melpa&#x2026; awaiting approval.
 
 # Example
 
-This example comes from `tests.el`, our test suite.
+This example comes from our test suite, in `tests/`.
 
 Let's define a function and place some constraints on its inputs and output&#x2026;
 
@@ -324,4 +324,4 @@ constraints then we are notified whenever we call it!
     Actual result value: 123 ---typed: integer"
     Mark set
 
-There are more examples in `tests.el`.
+There are more examples in `tests/`, one file per feature.
